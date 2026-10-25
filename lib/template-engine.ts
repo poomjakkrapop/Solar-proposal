@@ -56,6 +56,13 @@ export async function generateDocx(
 ): Promise<ArrayBuffer> {
   const map = templateMaps.find((entry) => entry.id === id);
   if (!map) throw new Error("ไม่พบการตั้งค่าต้นแบบ");
+  return generateMappedDocx(buffer, map, values);
+}
+export async function generateMappedDocx(
+  buffer: ArrayBuffer,
+  map: { sha256: string; slots: TemplateSlot[] },
+  values: Record<string, string>,
+): Promise<ArrayBuffer> {
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   const hash = Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, "0"),

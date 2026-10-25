@@ -2307,6 +2307,32 @@ select:focus-visible {
   gap: 17px;
   margin-top: 18px;
 }
+.template-local-notice,
+.template-source-needed {
+  padding: 14px 16px;
+  border: 1px solid #dbe5f2;
+  background: #f4f8fd;
+  border-radius: 10px;
+  line-height: 1.7;
+  color: #455b75;
+}
+.template-source-needed {
+  margin: 12px 0;
+}
+.template-source-needed p {
+  margin: 6px 0 0;
+}
+.template-download-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px 0;
+}
+.template-download-actions span {
+  flex: 1 1 220px;
+  overflow-wrap: anywhere;
+}
 .official-template-card {
   display: flex;
   flex-direction: column;
@@ -3174,4 +3200,63 @@ select:focus-visible {
 }
 .cloud-member code {
   overflow-wrap: anywhere;
+}
+.procurement-draft-dialog {
+  width: min(950px, calc(100vw - 28px));
+  max-height: 90dvh;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px;
+  color: var(--ink);
+  background: white;
+}
+.procurement-draft-dialog::backdrop {
+  background: rgb(15 23 42 / 45%);
+}
+.procurement-draft-fields {
+  display: grid;
+  gap: 18px;
+  margin: 20px 0;
+}
+.procurement-draft-fields textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+}
+.draft-acknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.7;
+  margin: 20px 0;
+}
+.draft-acknowledgement input {
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+.draft-field-count {
+  font-weight: 600;
+  color: #946213;
+}
+.procurement-document-card > .primary-button {
+  margin-top: 12px;
+}
+.procurement-document-card > .template-upload-label {
+  display: flex;
+  margin-top: 12px;
+}
+.procurement-draft-dialog > .template-download-actions {
+  position: sticky;
+  bottom: -28px;
+  background: white;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 600px) {
+  .procurement-draft-dialog {
+    padding: 18px;
+  }
+  .procurement-draft-dialog > .template-download-actions {
+    bottom: -18px;
+  }
 }

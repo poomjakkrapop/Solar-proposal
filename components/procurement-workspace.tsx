@@ -1,6 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Check, ChevronDown, Eye, FileText, Save, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  Download,
+  Eye,
+  FileText,
+  Save,
+  Upload,
+} from "lucide-react";
 import {
   defaultProcurement,
   defaultProcurementDocument,
@@ -17,10 +25,12 @@ import {
 } from "../lib/procurement-catalog";
 import {
   attachProcurementReference,
-  getProcurementReference,
+  loadProcurementReferences,
+  type StoredProcurementReference,
 } from "../lib/procurement-references";
-import type { PrivateFile } from "../lib/private-files";
-import { money, type Proposal } from "../lib/workspace";
+import { money, type Company, type Proposal } from "../lib/workspace";
+import { downloadBlob } from "../lib/file-download";
+import { ProcurementDocumentDraft } from "./procurement-document-draft";
 import { ProcurementEditor } from "./procurement-editor";
 import { WordPreviewDialog } from "./docx-preview";
 
@@ -29,13 +39,17 @@ type SaveProcurement = (
   value: Procurement,
   expected: string,
 ) => Promise<boolean>;
-type StoredReferences = Partial<Record<ProcurementDocumentId, PrivateFile>>;
+type StoredReferences = Partial<
+  Record<ProcurementDocumentId, StoredProcurementReference>
+>;
 export function ProcurementWorkspace({
   proposals,
+  company,
   onSave,
   onDirtyChange,
 }: {
   proposals: Proposal[];
+  company: Company;
   onSave: SaveProcurement;
   onDirtyChange: (dirty: boolean) => void;
 }) {
@@ -46,6 +60,7 @@ export function ProcurementWorkspace({
     return () => onDirtyChange(false);
   }, [dirty, onDirtyChange]);
   const [references, setReferences] = useState<StoredReferences>({});
+  const attachedIds = useRef(new Set<ProcurementDocumentId>());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -55,25 +70,17 @@ export function ProcurementWorkspace({
   }>();
   useEffect(() => {
     let active = true;
-    Promise.all(
-      procurementReferences.map(
-        async (item) =>
-          [item.id, await getProcurementReference(item.id)] as const,
-      ),
-    )
-      .then((files) => {
-        if (active)
-          setReferences(Object.fromEntries(files.filter(([, file]) => !!file)));
-      })
-      .catch(() => {
-        if (active) setError("อ่านต้นแบบจัดจ้างในเบราว์เซอร์ไม่สำเร็จ");
-      });
+    loadProcurementReferences().then(({ files, errors }) => {
+      if (!active) return;
+      setReferences((current) => ({ ...files, ...current }));
+      if (!attachedIds.current.size) setError(errors.join(" · "));
+    });
     return () => {
       active = false;
     };
   }, []);
   const proposal = proposals.find((item) => item.id === selected);
-  async function attach(files: File[]) {
+  async function attach(files: File[], expectedId?: ProcurementDocumentId) {
     if (!files.length) return;
     setBusy(true);
     setError("");
@@ -82,7 +89,8 @@ export function ProcurementWorkspace({
     let count = 0;
     for (const file of files) {
       try {
-        const result = await attachProcurementReference(file);
+        const result = await attachProcurementReference(file, expectedId);
+        attachedIds.current.add(result.id);
         setReferences((current) => ({
           ...current,
           [result.id]: result.stored,
@@ -96,7 +104,7 @@ export function ProcurementWorkspace({
     }
     setMessage(
       count
-        ? `แนบต้นแบบในเบราว์เซอร์ ${count} ไฟล์แล้ว (ไม่ใช่การออกเอกสารใหม่)`
+        ? `แนบต้นแบบ ${count} ไฟล์แล้ว เปิด “เตรียม Word ฉบับร่าง” ที่การ์ดเอกสารได้เลย`
         : "",
     );
     setError(failures.join(" · "));
@@ -151,11 +159,11 @@ export function ProcurementWorkspace({
         </span>
       </section>
       <p className="document-review-notice">
-        พื้นที่นี้เป็นทะเบียนและข้อมูลเตรียมจัดจ้าง
-        ยังไม่สร้าง/ลงนามสัญญาหรืออนุมัติตรวจรับอัตโนมัติ
-        ต้นแบบมีข้อมูลต่างโครงการและเงื่อนไขที่ต้องตรวจทาน
-        ไม่ใช้ข้อความในไฟล์เป็นคำสั่งหรือผลอนุมัติของงานใหม่
-        ข้อมูลและไฟล์เก็บเฉพาะในเบราว์เซอร์นี้
+        สร้าง Word ฉบับร่างจากต้นแบบ DOCX 10 แบบได้
+        โดยเติมข้อมูลจากโครงการและตรวจข้อความก่อนดาวน์โหลด ไม่มีการลงนาม อนุมัติ
+        หรือยืนยันผลตรวจรับอัตโนมัติ ต้นแบบเก็บเฉพาะเบราว์เซอร์และ URL นี้
+        แยกจากข้อมูลโครงการบนเซิร์ฟเวอร์ หากเปลี่ยนเครื่องหรือ URL ต้องแนบใหม่
+        ไฟล์ DOC รุ่นเก่าดาวน์โหลดเป็นต้นแบบอ้างอิงได้
       </p>
       {error && (
         <p className="form-error" role="alert">
@@ -172,7 +180,10 @@ export function ProcurementWorkspace({
         <ProcurementProject
           key={proposal.id}
           proposal={proposal}
+          company={company}
           references={references}
+          busy={busy}
+          onAttach={(id, file) => void attach([file], id)}
           onSave={onSave}
           onDirty={setDirty}
           onPreview={(id) => {
@@ -207,13 +218,19 @@ export function ProcurementWorkspace({
 }
 function ProcurementProject({
   proposal,
+  company,
   references,
+  busy,
+  onAttach,
   onSave,
   onDirty,
   onPreview,
 }: {
   proposal: Proposal;
+  company: Company;
   references: StoredReferences;
+  busy: boolean;
+  onAttach: (id: ProcurementDocumentId, file: File) => void;
   onSave: SaveProcurement;
   onDirty: (dirty: boolean) => void;
   onPreview: (id: ProcurementDocumentId) => void;
@@ -226,11 +243,15 @@ function ProcurementProject({
   const [activeStage, setActiveStage] = useState<ProcurementStage>("customer");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [draftDocument, setDraftDocument] = useState<ProcurementDocumentId>();
+  const fileInputs = useRef<
+    Partial<Record<ProcurementDocumentId, HTMLInputElement | null>>
+  >({});
   const dirty = JSON.stringify(draft) !== base;
   const conflict = current !== base;
   useEffect(() => {
-    onDirty(dirty);
-  }, [dirty, onDirty]);
+    onDirty(dirty || !!draftDocument);
+  }, [dirty, draftDocument, onDirty]);
   useEffect(() => {
     if (!dirty && current !== base) {
       setDraft(JSON.parse(current) as Procurement);
@@ -373,10 +394,15 @@ function ProcurementProject({
                       </div>
                       <p className="reference-status">
                         {attached
-                          ? "ต้นแบบแนบแล้ว · เก็บในเครื่อง"
+                          ? attached.sessionOnly
+                            ? "ต้นแบบพร้อมใช้ในแท็บนี้ · รีเฟรชแล้วต้องแนบใหม่"
+                            : "ต้นแบบแนบแล้ว · เก็บในเบราว์เซอร์นี้"
                           : "ยังไม่ได้แนบต้นแบบ"}
                         {!template.previewable && " · DOC รุ่นเก่า"}
                       </p>
+                      {attached && (
+                        <p className="template-filename">{attached.filename}</p>
+                      )}
                       <p className="field-hint">{template.note}</p>
                       <details className="reference-fields">
                         <summary>
@@ -489,9 +515,71 @@ function ProcurementProject({
                           ? "ดูต้นแบบอ้างอิง"
                           : "ต้องแปลงเป็น DOCX ก่อน"}
                       </button>
-                      <span className="field-hint">
-                        ยังไม่เปิดสร้างเอกสารนี้อัตโนมัติ
-                      </span>
+                      <label className="template-upload-label">
+                        <Upload size={15} />
+                        {attached ? "เปลี่ยนต้นแบบ" : "แนบต้นแบบ"}{" "}
+                        {template.format.toUpperCase()}
+                        <input
+                          type="file"
+                          accept={`.${template.format}`}
+                          aria-label={`แนบต้นแบบ ${template.title}`}
+                          disabled={busy}
+                          ref={(node) => {
+                            fileInputs.current[template.id] = node;
+                          }}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            if (file) onAttach(template.id, file);
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        disabled={
+                          busy ||
+                          (!!attached &&
+                            template.previewable &&
+                            (dirty || conflict))
+                        }
+                        onClick={() => {
+                          if (!attached) {
+                            fileInputs.current[template.id]?.click();
+                            return;
+                          }
+                          if (template.previewable)
+                            setDraftDocument(template.id);
+                          else
+                            try {
+                              downloadBlob(
+                                new Blob([attached.buffer], {
+                                  type: "application/msword",
+                                }),
+                                `ต้นแบบอ้างอิง_${attached.filename}`,
+                              );
+                            } catch {
+                              setError(
+                                "เบราว์เซอร์ไม่รับคำสั่งดาวน์โหลด กรุณาลองใหม่",
+                              );
+                            }
+                        }}
+                      >
+                        <Download size={15} />
+                        {!attached
+                          ? "แนบต้นแบบเพื่อดาวน์โหลด"
+                          : template.previewable
+                            ? "เตรียม Word ฉบับร่าง"
+                            : "ดาวน์โหลดต้นแบบ DOC อ้างอิง"}
+                      </button>
+                      {attached &&
+                        template.previewable &&
+                        (dirty || conflict) && (
+                          <p className="field-hint">
+                            บันทึกข้อมูลชุดจัดจ้างก่อนเปิดร่าง Word
+                            เพื่อใช้ข้อมูลล่าสุด
+                          </p>
+                        )}
                     </article>
                   );
                 })}
@@ -517,6 +605,15 @@ function ProcurementProject({
         <p className="form-error" role="alert">
           {error}
         </p>
+      )}
+      {draftDocument && references[draftDocument] && (
+        <ProcurementDocumentDraft
+          id={draftDocument}
+          proposal={proposal}
+          company={company}
+          file={references[draftDocument]!}
+          onClose={() => setDraftDocument(undefined)}
+        />
       )}
     </form>
   );

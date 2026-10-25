@@ -16,18 +16,18 @@ Next.js 15.5.20 App Router, React 19.1, Prisma 6.19.3/PostgreSQL, bcrypt แล�
 
 ## Matrix ก่อนย้ายข้อมูล/ระบบ
 
-| ส่วนเดิม | V2 ตอนนี้ | สิ่งที่ต้องปิดก่อน cutover |
-| --- | --- | --- |
-| User: ADMIN/SALES, bcrypt, active/resetRequested | บัญชี Supabase เดิมร่วม + owner/editor/viewer แยก workspace | identity/role mapping ที่ยืนยันแล้ว ห้าม import password hash หรือสร้าง Auth users อัตโนมัติ |
-| Customer: ที่อยู่ ภาษี GPS ผู้ติดต่อ | ชื่อ ผู้ติดต่อ โทร อีเมล พื้นที่ติดตั้ง | เก็บทุก field/ID/relations เดิม ไม่มีการทิ้งที่อยู่/ภาษี/GPS เงียบ ๆ |
-| Proposal: ราคา ส่วนลด VAT ผู้ขาย ฟิลด์เทคนิค/PEA/service | pricing/solar/procurement ใหม่และ sales pipeline | field-by-field mapping และตรวจ rounding/status/document terms ด้วย fixtures ที่ได้รับอนุญาต |
-| DRAFT/PENDING/APPROVED/REJECTED/EXPIRED | ร่าง/ส่งแล้ว/กำลังเจรจา/ชนะงาน/ไม่สำเร็จ | เป็นคนละความหมาย ห้ามแปลง APPROVED เป็นชนะงานอัตโนมัติ ต้องเก็บ approval state เดิม |
-| Package/Equipment: admin CRUD, active | เพิ่ม/แก้/ปิดแพ็กเกจและอุปกรณ์แบบ owner-only พร้อม snapshot ในข้อเสนอ | ยังต้องนำเข้า records/IDs เดิมและทดสอบกับข้อมูลสำเนา ดู [CATALOG.md](CATALOG.md) |
-| CompanyInfo: ข้อมูลบริษัท/ผู้ลงนาม/บัญชี/ภาพ | company + official profile | ตรวจทุก field; ภาพ/ลายเซ็น/ตราไม่ถูกนำเข้าหรือใช้กับงานใหม่อัตโนมัติ |
-| Template: DOCX placeholder ที่เก็บใน DB, 9 ประเภท | exact-hash ต้นแบบส่วนตัว 2 แบบใน IndexedDB | migration metadata+binary/checksum, รองรับต้นแบบที่อนุมัติและตรวจ mapping/render ทุกแบบ |
-| PDF builders: quotation, approval, cover, techspec, scope, payment, warranty, schedule | browser print/draft DOCX | คืนความสามารถ PDF ทั้ง 8 แบบและรวมเอกสาร พร้อม native visual acceptance |
-| FileBlob: logo/signature/stamp/template | ต้นแบบส่วนตัว origin-local | backup/restore bytes+MIME+refs แบบตรวจ hash และ migration ที่ไม่ลบของเดิม |
-| procurement อ้างอิง 11 แบบที่ผู้ใช้ส่งภายหลัง | ติดตามข้อมูล/แนบ/preview DOCX 10 แบบ; DOC เก่า 1 แบบ | ยังไม่เปิด generation; ต้องยืนยัน mapping/ตัวเลือกเอกสารและตรวจ Word/PDF |
+| ส่วนเดิม                                                                               | V2 ตอนนี้                                                              | สิ่งที่ต้องปิดก่อน cutover                                                                   |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| User: ADMIN/SALES, bcrypt, active/resetRequested                                       | บัญชี Supabase เดิมร่วม + owner/editor/viewer แยก workspace            | identity/role mapping ที่ยืนยันแล้ว ห้าม import password hash หรือสร้าง Auth users อัตโนมัติ |
+| Customer: ที่อยู่ ภาษี GPS ผู้ติดต่อ                                                   | ชื่อ ผู้ติดต่อ โทร อีเมล พื้นที่ติดตั้ง                                | เก็บทุก field/ID/relations เดิม ไม่มีการทิ้งที่อยู่/ภาษี/GPS เงียบ ๆ                         |
+| Proposal: ราคา ส่วนลด VAT ผู้ขาย ฟิลด์เทคนิค/PEA/service                               | pricing/solar/procurement ใหม่และ sales pipeline                       | field-by-field mapping และตรวจ rounding/status/document terms ด้วย fixtures ที่ได้รับอนุญาต  |
+| DRAFT/PENDING/APPROVED/REJECTED/EXPIRED                                                | ร่าง/ส่งแล้ว/กำลังเจรจา/ชนะงาน/ไม่สำเร็จ                               | เป็นคนละความหมาย ห้ามแปลง APPROVED เป็นชนะงานอัตโนมัติ ต้องเก็บ approval state เดิม          |
+| Package/Equipment: admin CRUD, active                                                  | เพิ่ม/แก้/ปิดแพ็กเกจและอุปกรณ์แบบ owner-only พร้อม snapshot ในข้อเสนอ  | ยังต้องนำเข้า records/IDs เดิมและทดสอบกับข้อมูลสำเนา ดู [CATALOG.md](CATALOG.md)             |
+| CompanyInfo: ข้อมูลบริษัท/ผู้ลงนาม/บัญชี/ภาพ                                           | company + official profile                                             | ตรวจทุก field; ภาพ/ลายเซ็น/ตราไม่ถูกนำเข้าหรือใช้กับงานใหม่อัตโนมัติ                         |
+| Template: DOCX placeholder ที่เก็บใน DB, 9 ประเภท                                      | exact-hash ต้นแบบส่วนตัว 2 แบบใน IndexedDB                             | migration metadata+binary/checksum, รองรับต้นแบบที่อนุมัติและตรวจ mapping/render ทุกแบบ      |
+| PDF builders: quotation, approval, cover, techspec, scope, payment, warranty, schedule | browser print/draft DOCX                                               | คืนความสามารถ PDF ทั้ง 8 แบบและรวมเอกสาร พร้อม native visual acceptance                      |
+| FileBlob: logo/signature/stamp/template                                                | ต้นแบบส่วนตัว origin-local                                             | backup/restore bytes+MIME+refs แบบตรวจ hash และ migration ที่ไม่ลบของเดิม                    |
+| procurement อ้างอิง 11 แบบที่ผู้ใช้ส่งภายหลัง                                          | ติดตามข้อมูล/แนบ/สร้างร่าง DOCX 10 แบบ; DOC เก่า 1 แบบดาวน์โหลดอ้างอิง | ต้องตรวจตัวเลือก/ข้อสัญญาและ Word/PDF; แปลงและ audit DOC เก่า                                |
 
 ## ผล dependency/security review
 

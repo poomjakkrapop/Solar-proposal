@@ -96,3 +96,7 @@ There are no database connections, authenticated users, server actions or busine
 3. Implement authenticated server/database workflows against a disposable data copy, with reviewed backward-compatible migrations.
 4. Publish reviewed, secret-free source to GitHub without triggering an unreviewed production replacement. Configure branch checks and a separate Vercel Preview with isolated configuration.
 5. Complete user acceptance and rollback checks before any main-branch production cutover.
+
+## Document download and procurement draft update — 2026-10-25
+
+The current behavior supersedes the historical read-only procurement description above. Ten DOCX references now generate editable drafts using reviewed structural slots, with source identities/outcomes removed, saved-project prefill, explicit unresolved fields and optional preview/retry. The legacy supervision DOC is downloadable as an unchanged reference only. See [current workflow, verification and limitations](DOCUMENT-DOWNLOADS.md). Source binaries and private QA outputs remain outside Git. Production remains No-Go pending the existing legacy/data/native-Word acceptance gates.

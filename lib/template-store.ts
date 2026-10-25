@@ -1,18 +1,44 @@
-import { templateMaps, type TemplateId } from "./template-maps";
+import { templateMaps, type TemplateId } from "./template-maps.ts";
 import {
   readPrivateFile,
   savePrivateFile,
+  verifyPrivateFile,
   type PrivateFile,
-} from "./private-files";
-export type StoredTemplate = PrivateFile<TemplateId>;
+} from "./private-files.ts";
+export type StoredTemplate = PrivateFile<TemplateId> & {
+  sessionOnly?: boolean;
+};
+type TemplateReader = (id: TemplateId) => Promise<StoredTemplate | undefined>;
+type TemplateWriter = typeof savePrivateFile;
 export const getTemplate = (id: TemplateId) => {
   const map = templateMaps.find((entry) => entry.id === id);
   if (!map) throw new Error("ไม่พบประเภทต้นแบบ");
   return readPrivateFile(id, map.sha256);
 };
+export async function loadTemplates(
+  ids: readonly TemplateId[],
+  read: TemplateReader = getTemplate,
+) {
+  const results = await Promise.allSettled(
+    ids.map((id) => Promise.resolve().then(() => read(id))),
+  );
+  const files: Partial<Record<TemplateId, StoredTemplate>> = {};
+  const errors: Partial<Record<TemplateId, string>> = {};
+  results.forEach((result, i) => {
+    if (result.status === "fulfilled") {
+      if (result.value) files[ids[i]] = result.value;
+    } else
+      errors[ids[i]] =
+        result.reason instanceof Error
+          ? result.reason.message
+          : "เปิดต้นแบบที่เก็บไว้ไม่สำเร็จ กรุณาแนบต้นฉบับใหม่";
+  });
+  return { files, errors };
+}
 export async function attachTemplate(
   id: TemplateId,
   file: File,
+  persist: TemplateWriter = savePrivateFile,
 ): Promise<StoredTemplate> {
   if (
     !file.name.toLowerCase().endsWith(".docx") ||
@@ -21,5 +47,30 @@ export async function attachTemplate(
     throw new Error("กรุณาเลือกไฟล์ DOCX ขนาดไม่เกิน 10 MB");
   const map = templateMaps.find((entry) => entry.id === id);
   if (!map) throw new Error("ไม่พบประเภทต้นแบบ");
-  return savePrivateFile(id, file.name, await file.arrayBuffer(), map.sha256);
+  const buffer = await file.arrayBuffer();
+  const selected = {
+    id,
+    filename: file.name,
+    buffer,
+    attachedAt: new Date().toISOString(),
+  };
+  return retainVerifiedTemplate(selected, map.sha256, persist);
+}
+export async function retainVerifiedTemplate(
+  selected: PrivateFile<TemplateId>,
+  expectedHash: string,
+  persist: TemplateWriter = savePrivateFile,
+): Promise<StoredTemplate> {
+  // Storage fallback never bypasses validation of the selected original.
+  await verifyPrivateFile(selected, selected.id, expectedHash);
+  try {
+    return await persist(
+      selected.id,
+      selected.filename,
+      selected.buffer,
+      expectedHash,
+    );
+  } catch {
+    return { ...selected, sessionOnly: true };
+  }
 }

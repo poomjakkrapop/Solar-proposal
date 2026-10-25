@@ -1129,6 +1129,7 @@ export default function SolarWorkspace({
               />
               <ProcurementWorkspace
                 proposals={proposals}
+                company={company}
                 onDirtyChange={(dirty) => {
                   pendingProcurement.current = dirty;
                 }}

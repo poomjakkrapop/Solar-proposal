@@ -1,9 +1,6 @@
 import type { ProcurementDocumentId } from "./procurement.ts";
 export type ProcurementStage =
-  | "customer"
-  | "selection"
-  | "contract"
-  | "delivery";
+  "customer" | "selection" | "contract" | "delivery";
 export type ProcurementReference = {
   id: ProcurementDocumentId;
   number: string;
@@ -191,7 +188,7 @@ export const procurementReferences: ProcurementReference[] = [
       "ค่าปรับ",
       "เอกสารแนบ",
     ],
-    note: "เป็นแบบสัญญาที่มีข้อเลือกหลายกรณี ยังไม่เปิดสร้างหรือเซ็นอัตโนมัติ",
+    note: "เป็นร่างสัญญาที่มีข้อเลือกหลายกรณี ต้องเลือกเงื่อนไขให้ตรงงานและตรวจใน Word ก่อนลงนาม",
     sha256: "d342ef34d12ea7037f65fc4adfc98ff2ce9301e5e4ef554ca85ec7d3bab9f83b",
     format: "docx",
     previewable: true,

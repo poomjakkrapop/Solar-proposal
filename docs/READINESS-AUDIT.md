@@ -149,3 +149,7 @@ Rollback โค้ด Preview ใช้ deployment ก่อนหน้าห�
 4. จัดหา canonical renderer ใน bundled environment, ตรวจ DOCX/PDF 2 แบบทุกหน้า แก้ quantity/header/footer/shape/field mappings; แปลง DOC โดยตรวจเทียบต้นฉบับและทวน template revision ก่อนทำ generation 11 แบบ
 5. ปิด mobile/accessibility/end-to-end gaps เพิ่ม staging backup/restore/monitoring/CI checks และ UAT บน Preview commit ที่ระบุได้
 6. เมื่อ blockers ผ่านทั้งหมดจึงเสนอ cutover ที่ตรวจรับได้ พร้อม production backup, deployment/alias IDs และ rollback plan คง production เดิมจนถึงขั้นนั้น
+
+## Document download update — 2026-10-25
+
+The missing-original button now opens a picker and explains browser/origin storage; download/retry dispatch uses an attached anchor with a one-minute object-URL lifetime. Ten procurement DOCX references now support editable draft exports through 211 reviewed own-text slots. The older read-only status in this report is superseded by [DOCUMENT-DOWNLOADS.md](DOCUMENT-DOWNLOADS.md). One legacy DOC still supports original-reference download only. Native Word/PDF and official template/legal review remain unapproved; production cutover remains No-Go.
