@@ -1,8 +1,14 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { calculateEstimate, defaultSolarDetails } from "../lib/solar";
+import { calculateEstimate } from "../lib/solar";
 import { SolarFields } from "./solar-fields";
+import {
+  applyPackageEquipment,
+  initialCatalogSolar,
+  defaultCatalog,
+  type Catalog,
+} from "../lib/catalog";
 import {
   ArrowRight,
   Check,
@@ -12,7 +18,6 @@ import {
   Upload,
 } from "lucide-react";
 import {
-  catalog,
   money,
   parseWorkspace,
   type Company,
@@ -40,6 +45,7 @@ async function submitForm(
 }
 
 export function ProposalEditor({
+  catalogData = defaultCatalog,
   proposal,
   customers,
   selectedPackage,
@@ -47,6 +53,7 @@ export function ProposalEditor({
   onCancel,
   readOnly = false,
 }: {
+  catalogData?: Catalog;
   proposal: Proposal | null;
   customers: Customer[];
   selectedPackage?: string;
@@ -54,10 +61,19 @@ export function ProposalEditor({
   onCancel: () => void;
   readOnly?: boolean;
 }) {
+  const catalog = catalogData.packages.filter(
+    (item) =>
+      item.active &&
+      [item.panelId, item.inverterId].every(
+        (id) => !id || catalogData.equipment.find((e) => e.id === id)?.active,
+      ),
+  );
   const initialPackage =
     catalog.find(
       (item) => item.name === (proposal?.package || selectedPackage),
-    ) || catalog[1];
+    ) ||
+    catalog.find((item) => item.name === "Residential Premium") ||
+    catalog[0];
   const [customerId, setCustomerId] = useState(proposal?.customerId || "");
   const [customer, setCustomer] = useState(proposal?.customer || "");
   const [contact, setContact] = useState(proposal?.contact || "");
@@ -69,17 +85,17 @@ export function ProposalEditor({
   );
   const [location, setLocation] = useState(proposal?.location || "");
   const [packageName, setPackageName] = useState(
-    proposal?.package || initialPackage.name,
+    proposal?.package || initialPackage?.name || "ปรับแต่งเอง",
   );
   const [system, setSystem] = useState(
-    proposal?.system || initialPackage.system,
+    proposal?.system || initialPackage?.system || 10,
   );
   const [amount, setAmount] = useState(
-    proposal?.amount || initialPackage.price,
+    proposal?.amount ?? initialPackage?.price ?? 0,
   );
   const [error, setError] = useState("");
-  const [solar, setSolar] = useState(
-    proposal?.solar || defaultSolarDetails(system),
+  const [solar, setSolar] = useState(() =>
+    initialCatalogSolar(proposal, initialPackage, system, catalogData),
   );
   const estimate = calculateEstimate(solar, amount);
   function chooseCustomer(id: string) {
@@ -103,6 +119,9 @@ export function ProposalEditor({
     if (item) {
       setSystem(item.system);
       setAmount(item.price);
+      setSolar((previous) =>
+        applyPackageEquipment(previous, item, catalogData),
+      );
     }
   }
   return (
@@ -407,6 +426,10 @@ export function CompanySettings({
     }
     try {
       const data = parseWorkspace(await file.text());
+      if (workspace.catalog && !data.catalog)
+        throw new Error(
+          "ไฟล์สำรองนี้ไม่มีแพ็กเกจและอุปกรณ์ จึงยังแทนข้อมูลปัจจุบันไม่ได้ กรุณาใช้ไฟล์สำรองรุ่นล่าสุด",
+        );
       if (request === importRequest.current)
         setPendingImport({ data, baseline });
     } catch (error) {
@@ -575,6 +598,13 @@ export function CompanySettings({
             <span>
               {pendingImport.data.proposals.length} ใบเสนอราคา ·{" "}
               {pendingImport.data.customers.length} ลูกค้า
+              {pendingImport.data.catalog && (
+                <>
+                  {" "}
+                  · {pendingImport.data.catalog.packages.length} แพ็กเกจ ·{" "}
+                  {pendingImport.data.catalog.equipment.length} อุปกรณ์
+                </>
+              )}
             </span>
             <p>
               {shared

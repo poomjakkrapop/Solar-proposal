@@ -8,6 +8,9 @@ Current audit and release decision (2026-10-25): [Thai readiness report](docs/RE
 
 ## Current scope
 
+- Workspace catalog now supports owner-managed packages and panel/inverter equipment, active/archive state and draft prefill. Existing proposal prices/specifications remain snapshots. [Catalog behavior, permissions and backup compatibility](docs/CATALOG.md).
+- The owner currently has no legacy database test export. A plan-only Windows backup helper and restore checklist are prepared in [LEGACY-BACKUP.md](docs/LEGACY-BACKUP.md); no real backup/restore has been performed.
+
 - Responsive Thai-language workspace with dashboard, proposals, customers, catalog, and templates.
 - Create and edit proposals and customers, select an existing customer, prefill system size/pricing from a package, add notes and a validity date, filter/search, and update status.
 - Dashboard metrics, status charts, and customer totals derive from the stored records. There are no invented growth percentages.

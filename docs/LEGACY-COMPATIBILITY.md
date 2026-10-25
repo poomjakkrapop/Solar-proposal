@@ -22,7 +22,7 @@ Next.js 15.5.20 App Router, React 19.1, Prisma 6.19.3/PostgreSQL, bcrypt แล�
 | Customer: ที่อยู่ ภาษี GPS ผู้ติดต่อ | ชื่อ ผู้ติดต่อ โทร อีเมล พื้นที่ติดตั้ง | เก็บทุก field/ID/relations เดิม ไม่มีการทิ้งที่อยู่/ภาษี/GPS เงียบ ๆ |
 | Proposal: ราคา ส่วนลด VAT ผู้ขาย ฟิลด์เทคนิค/PEA/service | pricing/solar/procurement ใหม่และ sales pipeline | field-by-field mapping และตรวจ rounding/status/document terms ด้วย fixtures ที่ได้รับอนุญาต |
 | DRAFT/PENDING/APPROVED/REJECTED/EXPIRED | ร่าง/ส่งแล้ว/กำลังเจรจา/ชนะงาน/ไม่สำเร็จ | เป็นคนละความหมาย ห้ามแปลง APPROVED เป็นชนะงานอัตโนมัติ ต้องเก็บ approval state เดิม |
-| Package/Equipment: admin CRUD, active | presets/catalog และการกรอกสเปก | editable catalog/equipment พร้อมสิทธิ์และรักษา references ของข้อเสนอเก่า |
+| Package/Equipment: admin CRUD, active | เพิ่ม/แก้/ปิดแพ็กเกจและอุปกรณ์แบบ owner-only พร้อม snapshot ในข้อเสนอ | ยังต้องนำเข้า records/IDs เดิมและทดสอบกับข้อมูลสำเนา ดู [CATALOG.md](CATALOG.md) |
 | CompanyInfo: ข้อมูลบริษัท/ผู้ลงนาม/บัญชี/ภาพ | company + official profile | ตรวจทุก field; ภาพ/ลายเซ็น/ตราไม่ถูกนำเข้าหรือใช้กับงานใหม่อัตโนมัติ |
 | Template: DOCX placeholder ที่เก็บใน DB, 9 ประเภท | exact-hash ต้นแบบส่วนตัว 2 แบบใน IndexedDB | migration metadata+binary/checksum, รองรับต้นแบบที่อนุมัติและตรวจ mapping/render ทุกแบบ |
 | PDF builders: quotation, approval, cover, techspec, scope, payment, warranty, schedule | browser print/draft DOCX | คืนความสามารถ PDF ทั้ง 8 แบบและรวมเอกสาร พร้อม native visual acceptance |
@@ -40,7 +40,7 @@ Legacy lockfile production dependency graph มี advisory package entries 25 �
 1. จัดทำ hotfix ของระบบเดิมในพื้นที่แยก: dependencies/session revocation/upload/storage transactions พร้อม baseline tests และ Preview ที่ไม่เขียน DB จริงก่อนให้ผู้ใช้ตรวจ
 2. เตรียม read-only export และ backup/restore ของทั้ง 8 models และ FileBlob บนสำเนาที่อนุญาต เก็บ private และตรวจ counts/checksums/relations ห้ามใช้ credentials หรือ binary ใน Git
 3. ทำ compatibility mapping ตามตาราง โดยเก็บ unknown fields/status codes และ migration ledger ไม่มีการแทนข้อมูลเดิมหรือ auto-map บัญชี/สถานะ
-4. เติม editable catalog, เอกสาร/PDF/remote template ที่ยังขาด แล้วทดสอบข้อมูลเดิมครบชุดใน Preview
+4. ทดสอบนำเข้า editable catalog ที่เพิ่มใน V2 แล้ว และเติมเอกสาร/PDF/remote template ที่ยังขาด จากนั้นทดสอบข้อมูลเดิมครบชุดใน Preview
 5. ทดสอบ hosted roles/invitation/revoke ด้วยบัญชีเดิมที่สองเมื่อพร้อม; ขณะนี้ผู้ใช้มีบัญชีพร้อมทดสอบเดียว ผล simulated UI/SQL ไม่ทดแทน hosted multi-account acceptance
 6. ปิด native Word/PDF, accessibility/mobile/load, credential/config review และ restore/rollback rehearsal ก่อนปลด main deployment hold และกำหนด cutover
 

@@ -448,6 +448,114 @@ test("Postgres enforces workspace isolation, write permissions, revisions, invit
         );
       },
     );
+    await t.test(
+      "catalog writes are owner-only; older clients cannot erase it and rejected writes leave revision/audit unchanged",
+      async () => {
+        await asWriter();
+        await db.query(
+          "insert into public.sd_v2_members(workspace_id,user_id,role) values($1,$2,'editor')",
+          [workspace, editor],
+        );
+        const catalogDocument = {
+          ...document,
+          catalog: { version: 1, packages: [], equipment: [] },
+        };
+        await assert.rejects(
+          db.query("select public.sd_v2_save_workspace($1,$2,3,$3)", [
+            editor,
+            workspace,
+            catalogDocument,
+          ]),
+          /catalog owner required/,
+        );
+        await db.query("select public.sd_v2_save_workspace($1,$2,3,$3)", [
+          id,
+          workspace,
+          catalogDocument,
+        ]);
+        const edited = {
+          ...catalogDocument,
+          company: { ...document.company, name: "Synthetic editor save" },
+        };
+        await db.query("select public.sd_v2_save_workspace($1,$2,4,$3)", [
+          editor,
+          workspace,
+          edited,
+        ]);
+        const before = (
+          await db.query("select count(*)::int as n from public.sd_v2_audit")
+        ).rows[0].n;
+        await assert.rejects(
+          db.query("select public.sd_v2_save_workspace($1,$2,5,$3)", [
+            id,
+            workspace,
+            document,
+          ]),
+          /catalog field required/,
+        );
+        await assert.rejects(
+          db.query("select public.sd_v2_save_workspace($1,$2,5,$3)", [
+            editor,
+            workspace,
+            {
+              ...edited,
+              catalog: {
+                ...edited.catalog,
+                packages: [{ id: "unauthorized" }],
+              },
+            },
+          ]),
+          /catalog owner required/,
+        );
+        await assert.rejects(
+          db.query("select public.sd_v2_save_workspace($1,$2,5,$3)", [
+            id,
+            workspace,
+            { ...edited, catalog: null },
+          ]),
+          /invalid catalog/,
+        );
+        const stored = (
+          await db.query(
+            "select revision,document from public.sd_v2_workspaces where id=$1",
+            [workspace],
+          )
+        ).rows[0];
+        await assert.rejects(
+          db.query("select public.sd_v2_save_workspace($1,$2,5,$3)", [
+            id,
+            workspace,
+            { ...edited, customers: {} },
+          ]),
+          /workspace document check constraint/,
+        );
+        await assert.rejects(
+          db.query("select public.sd_v2_save_workspace($1,$2,5,$3)", [
+            id,
+            workspace,
+            {
+              ...edited,
+              company: { ...edited.company, name: "x".repeat(4194304) },
+            },
+          ]),
+          /workspace document check constraint/,
+        );
+        const afterRejectedBounds = (
+          await db.query(
+            "select revision,document from public.sd_v2_workspaces where id=$1",
+            [workspace],
+          )
+        ).rows[0];
+        assert.deepEqual(afterRejectedBounds, stored);
+        assert.equal(stored.revision, 5);
+        assert.deepEqual(stored.document, edited);
+        assert.equal(
+          (await db.query("select count(*)::int as n from public.sd_v2_audit"))
+            .rows[0].n,
+          before,
+        );
+      },
+    );
   } finally {
     await db.close();
   }

@@ -16,8 +16,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
-function rpcError(error: { code?: string } | null) {
+function rpcError(error: { code?: string; message?: string } | null) {
   if (!error) return;
+  if (error.code === "22023" && error.message === "catalog field required")
+    throw new CloudError(
+      409,
+      "ข้อมูลแพ็กเกจและอุปกรณ์ไม่ครบ กรุณาโหลดหน้าใหม่ก่อนบันทึก และใช้ไฟล์สำรองรุ่นล่าสุด",
+    );
   if (error.code === "40001")
     throw new CloudError(
       409,
@@ -82,22 +87,20 @@ async function handle(request: Request) {
         );
         if (!membership)
           throw new CloudError(404, "ไม่พบพื้นที่ทำงานที่เข้าถึงได้");
-        const [
-          { data, error },
-          { data: audit, error: auditError },
-        ] = await Promise.all([
-          session.client
-            .from("sd_v2_workspaces")
-            .select("id,revision,document")
-            .eq("id", selected)
-            .single(),
-          session.client
-            .from("sd_v2_audit")
-            .select("id,event,actor_id,revision,created_at")
-            .eq("workspace_id", selected)
-            .order("id", { ascending: false })
-            .limit(30),
-        ]);
+        const [{ data, error }, { data: audit, error: auditError }] =
+          await Promise.all([
+            session.client
+              .from("sd_v2_workspaces")
+              .select("id,revision,document")
+              .eq("id", selected)
+              .single(),
+            session.client
+              .from("sd_v2_audit")
+              .select("id,event,actor_id,revision,created_at")
+              .eq("workspace_id", selected)
+              .order("id", { ascending: false })
+              .limit(30),
+          ]);
         if (error || auditError || !data)
           throw new CloudError(503, "อ่านข้อมูลไม่สำเร็จ");
         return {

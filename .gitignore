@@ -30,3 +30,6 @@ private/
 credentials*.json
 auth.json
 supabase/.temp/
+*.dump
+*.backup
+*.sql.gz

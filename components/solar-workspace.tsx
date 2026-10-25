@@ -31,7 +31,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   CompanySettings,
@@ -62,6 +62,7 @@ import {
 } from "../lib/workspace";
 import type { CloudBinding } from "../lib/use-cloud-workspace";
 import { useWorkspace } from "../lib/use-workspace";
+import { defaultCatalog } from "../lib/catalog";
 import {
   calculateEstimate,
   isSolarDetails,
@@ -79,6 +80,10 @@ const ProcurementWorkspace = dynamic(
       (module) => module.ProcurementWorkspace,
     ),
   { loading: () => <p role="status">กำลังเปิดชุดงานจัดจ้าง…</p> },
+);
+const CatalogManager = dynamic(
+  () => import("./catalog-manager").then((module) => module.CatalogManager),
+  { loading: () => <p role="status">กำลังเปิดแค็ตตาล็อก…</p> },
 );
 
 type View =
@@ -321,16 +326,23 @@ export default function SolarWorkspace({
 }) {
   const [view, setViewState] = useState<View>("ภาพรวม");
   const pendingProcurement = useRef(false);
+  const pendingCatalog = useRef(false);
+  const catalogDirty = useCallback((value: boolean) => {
+    pendingCatalog.current = value;
+  }, []);
   function setView(next: View) {
     if (
       next !== view &&
-      pendingProcurement.current &&
+      (pendingProcurement.current || pendingCatalog.current) &&
       !window.confirm(
-        "มีข้อมูลจัดจ้างที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้และทิ้งเฉพาะการแก้ไขที่ยังไม่บันทึกหรือไม่?",
+        "มีข้อมูลที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้และทิ้งเฉพาะการแก้ไขที่ยังไม่บันทึกหรือไม่?",
       )
     )
       return;
-    if (next !== view) pendingProcurement.current = false;
+    if (next !== view) {
+      pendingProcurement.current = false;
+      pendingCatalog.current = false;
+    }
     setViewState(next);
   }
   const [modal, setModal] = useState<Modal>(null);
@@ -745,7 +757,9 @@ export default function SolarWorkspace({
             <div className="profile-info">
               <strong>{cloud ? cloud.email : "โหมดในเครื่อง"}</strong>
               <span>
-                {cloud ? cloud.role || "ยังยืนยันสิทธิ์ไม่ได้" : "ยังไม่ได้เข้าสู่ระบบ"}
+                {cloud
+                  ? cloud.role || "ยังยืนยันสิทธิ์ไม่ได้"
+                  : "ยังไม่ได้เข้าสู่ระบบ"}
               </span>
             </div>
           </div>
@@ -802,7 +816,8 @@ export default function SolarWorkspace({
               {cloud ? (
                 <>
                   <strong>ข้อมูลกลาง</strong> — บันทึกผ่านเซิร์ฟเวอร์ · สิทธิ์{" "}
-                  {cloud.role || "ยังยืนยันสิทธิ์ไม่ได้"} · ต้นแบบ Word ยังเก็บในเครื่องนี้
+                  {cloud.role || "ยังยืนยันสิทธิ์ไม่ได้"} · ต้นแบบ Word
+                  ยังเก็บในเครื่องนี้
                 </>
               ) : (
                 <>
@@ -1088,112 +1103,20 @@ export default function SolarWorkspace({
             <>
               <PageHeading
                 title="สินค้าและแพ็กเกจ"
-                description="ชุดระบบที่พร้อมนำไปใช้สร้างข้อเสนอให้ลูกค้า"
-                action={
-                  <button
-                    className="secondary-button"
-                    onClick={() =>
-                      setToast("การแก้ไขแค็ตตาล็อกจะเชื่อมฐานข้อมูลในขั้นถัดไป")
-                    }
-                  >
-                    <Settings2 size={16} /> จัดการแค็ตตาล็อก
-                  </button>
-                }
+                description="แพ็กเกจและอุปกรณ์ของพื้นที่ทำงาน เลือกใช้กับข้อเสนอใหม่ได้"
+                action={<span />}
               />
-              <div className="catalog-grid">
-                {[
-                  {
-                    name: "Residential Standard",
-                    label: "บ้านพักอาศัย",
-                    kw: "5 kWp",
-                    price: 219000,
-                    panel: "แผง Mono PERC 550W",
-                    inverter: "Inverter 5kW",
-                    color: "blue",
-                  },
-                  {
-                    name: "Residential Premium",
-                    label: "บ้านพักอาศัย",
-                    kw: "10 kWp",
-                    price: 389000,
-                    panel: "แผง N-Type 580W",
-                    inverter: "Hybrid Inverter 10kW",
-                    color: "green",
-                  },
-                  {
-                    name: "Business Pro",
-                    label: "ธุรกิจและอาคาร",
-                    kw: "30 kWp",
-                    price: 945000,
-                    panel: "แผง N-Type 580W",
-                    inverter: "String Inverter 30kW",
-                    color: "gold",
-                  },
-                  {
-                    name: "Industrial Max",
-                    label: "โรงงานอุตสาหกรรม",
-                    kw: "100 kWp",
-                    price: 2780000,
-                    panel: "แผง N-Type 600W",
-                    inverter: "3-phase Inverter 100kW",
-                    color: "purple",
-                  },
-                ].map((item) => (
-                  <article className="catalog-card" key={item.name}>
-                    <div className={`catalog-art ${item.color}`}>
-                      <div className="panel-illustration">
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                      </div>
-                      <span className="kw-badge">
-                        <Sun size={13} />
-                        {item.kw}
-                      </span>
-                    </div>
-                    <div className="catalog-content">
-                      <div className="catalog-label">{item.label}</div>
-                      <h2>{item.name}</h2>
-                      <div className="catalog-spec">
-                        <span>
-                          <Check size={14} />
-                          {item.panel}
-                        </span>
-                        <span>
-                          <Check size={14} />
-                          {item.inverter}
-                        </span>
-                        <span>
-                          <Check size={14} />
-                          รวมติดตั้งและรับประกัน
-                        </span>
-                      </div>
-                      <div className="catalog-price">
-                        <span>ราคาเริ่มต้น</span>
-                        <strong>{money(item.price)}</strong>
-                      </div>
-                      <button
-                        className="catalog-button"
-                        onClick={() => {
-                          setView("ใบเสนอราคา");
-                          openProposal(null, item.name);
-                        }}
-                      >
-                        สร้างข้อเสนอจากแพ็กเกจ <ArrowRight size={15} />
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <CatalogManager
+                workspace={workspace}
+                canManage={!readOnly && (!cloud || cloud.role === "owner")}
+                canCreate={!readOnly}
+                commit={commit}
+                dirty={catalogDirty}
+                choose={(name) => {
+                  setView("ใบเสนอราคา");
+                  openProposal(null, name);
+                }}
+              />
             </>
           )}
 
@@ -1376,6 +1299,7 @@ export default function SolarWorkspace({
           wide
         >
           <ProposalEditor
+            catalogData={workspace.catalog || defaultCatalog}
             readOnly={readOnly}
             proposal={proposalEditorBase}
             customers={customers}

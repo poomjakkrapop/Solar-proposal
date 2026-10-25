@@ -6,6 +6,8 @@
 
 ## ขอบเขตที่ผู้ใช้อนุมัติ
 
+Follow-up: เพิ่มแค็ตตาล็อก owner-only และ migration ที่สาม `20261025142650_solardesk_catalog_write_guard` แล้ว โดยคงสิทธิ์/validation เดิมและป้องกัน client เก่าเขียนทิ้ง catalog ข้อมูล workspace เดิมยัง revision 2 หลัง migration ดู [CATALOG.md](CATALOG.md) สำหรับข้อกำหนดของ backup envelope v3 และผล UI/SQL จำลอง
+
 ใช้ Supabase project เดิมร่วมกัน แต่แยกข้อมูลและสิทธิ์ SolarDesk ไม่สร้าง project/branch แบบเสียเงิน ไม่แตะตารางการเงินหรือ KPI เดิม ใช้บัญชี Auth เดิมร่วมกัน และไม่เปิดสมัครบัญชี เปลี่ยนรหัสผ่าน หรือกู้รหัสผ่านจาก SolarDesk
 
 พบ trigger `auth.users → handle_new_user` ของระบบเดิม จึงตัด API/UI สมัครและเปลี่ยนบัญชีออกจากรุ่นนี้โดยตรง ไม่อาศัยเพียงการซ่อนปุ่มหรือ environment flag การออกจากระบบใช้ `scope:local` เพื่อไม่ออกจากทุก session ของแอปอื่น

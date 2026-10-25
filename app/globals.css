@@ -1296,6 +1296,51 @@ select:focus-visible {
   background: #f2edfb;
   color: #8571b7;
 }
+.catalog-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.catalog-tabs {
+  display: flex;
+  gap: 8px;
+}
+.catalog-tabs [aria-pressed="true"] {
+  background: #e8efff;
+  border-color: #4d76ce;
+  color: #204b9e;
+}
+.catalog-notice {
+  color: #5c6b83;
+  line-height: 1.6;
+  margin: 12px 0 20px;
+}
+.catalog-editor {
+  padding: 24px;
+  margin-bottom: 24px;
+  scroll-margin-top: 90px;
+}
+.catalog-editor h2 {
+  margin: 0 0 18px;
+}
+.catalog-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.catalog-description {
+  min-height: 3em;
+  color: #64748b;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.catalog-edit {
+  width: 100%;
+  margin-top: 8px;
+}
 .catalog-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
