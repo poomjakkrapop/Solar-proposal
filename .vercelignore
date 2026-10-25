@@ -1,0 +1,22 @@
+# Deploy application source only. Local records and original forms stay private.
+.git/
+.github/
+.vercel/
+node_modules/
+.next/
+.next-dev/
+out/
+build/
+.env*
+**/.env*
+*.log
+*.tsbuildinfo
+tests/
+docs/
+outputs/
+work/
+**/*.doc
+**/*.docx
+**/*.pdf
+**/*.zip
+**/*backup*.json
