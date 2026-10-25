@@ -16,6 +16,8 @@ The owner also added a Sensitive variable with the same server-secret name to Pr
 
 ## Readiness audit update — 2026-10-25
 
+Subsequent source recovery verified all 96 legacy text files (981,770 bytes) against Vercel SHA-1 IDs; the one favicon binary was not downloaded. The private source was not committed. After explicit owner authorization for filtered source review, Auth/actions/API/storage/validation were inspected and a private security report prepared. Legacy lockfile production audit reports 25 package entries (2 critical, 18 high, 5 moderate), distinct from V2's current dependency graph. [LEGACY-COMPATIBILITY.md](LEGACY-COMPATIBILITY.md) records the remaining data/auth/status/catalog/8-PDF/template/asset gaps. Source recovery does not constitute full runtime/security/data-migration acceptance, and no legacy production fix was deployed.
+
 The current findings and release decision are in [READINESS-AUDIT.md](READINESS-AUDIT.md). Production remains **No-Go**. This update supersedes historical test/advisory/schema counts below: 36 tests pass; full dependency audit reports zero advisories; the complete 8-model legacy Prisma schema has been recovered privately, while full legacy source/security/parity review remains incomplete. Build first-load JavaScript is approximately 137 kB.
 
 This branch adds frozen editor/import baselines, cross-tab exclusive write locks, draft preservation, cached-template integrity checks, async Word-preview isolation and an honest local-mode/help UI. Real browser tests include simultaneous writes: one company save succeeds and the other is rejected without losing its draft. Existing production/database, original forms and the main deployment hold are preserved.
