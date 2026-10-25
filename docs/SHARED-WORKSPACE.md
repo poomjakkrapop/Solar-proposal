@@ -1,6 +1,6 @@
 # SolarDesk: โหมดข้อมูลกลาง
 
-อัปเดต 25 ตุลาคม 2026 — **ยังไม่อนุมัติ production cutover** โค้ดและตารางข้อมูลกลางเพิ่มแล้ว การทดสอบล็อกอินจริง/ข้ามเครื่องยังต้องทำหลังตั้งค่า Secret ใน Preview
+อัปเดต 25 ตุลาคม 2026 — **ยังไม่อนุมัติ production cutover** เปิดข้อมูลกลางเฉพาะ Preview แล้ว ผู้ใช้รายงานว่าล็อกอินสำเร็จ และ metadata ยืนยันการสร้าง workspace/สมาชิก/audit การทดสอบบันทึกข้อมูลธุรกิจ โหลดกลับ และสิทธิ์หลายบัญชียังต้องทำ
 
 อัปเดตการตั้งค่า: ผู้ใช้เพิ่ม server Secret แล้ว ตรวจเฉพาะ metadata ว่าเป็น Sensitive ใน Preview branch ที่อนุมัติ จากนั้นเปิด `SOLARDESK_CLOUD_ENABLED=true` เฉพาะ branch นี้เพื่อเริ่ม live verification ไม่มีการอ่านค่าลับกลับมา การมี configuration ครบยังไม่ใช่หลักฐานว่าการล็อกอินและเขียนฐานข้อมูลผ่านแล้ว
 
@@ -52,7 +52,20 @@ Workspace รุ่นแรกเก็บข้อมูลเป็น JSON s
 | `SOLARDESK_APP_URL`        | HTTPS branch alias ของ Preview                                                                          |
 | `SOLARDESK_CLOUD_ENABLED`  | คง `false` จนตั้งค่า Secret ครบและพร้อมทดสอบ แล้วเปลี่ยนเฉพาะ Preview เป็น `true` และ rebuild           |
 
-`.env.example` มีเพียงชื่อและค่าว่าง ไม่มี key จริง การตั้งค่าตัวแปรอื่นของ Preview เตรียมแล้ว ส่วน server Secret และการยืนยันบัญชีจริงยังต้องดำเนินการในช่องทางที่ปลอดภัย ไม่มี Production env ถูกแก้
+`.env.example` มีเพียงชื่อและค่าว่าง ไม่มี key จริง Preview ตั้งค่าครบและเปิด cloud mode แล้ว ผู้ใช้เพิ่มตัวแปร Secret ชื่อเดียวกันใน Production ด้วย ไม่ได้อ่านค่า/เปลี่ยน/ลบรายการนั้น งานของ agent ตั้งค่าเฉพาะ Preview และไม่ได้เปลี่ยน production alias หรือ main deployment hold
+
+## หลักฐาน hosted Preview ล่าสุด
+
+- Git commit `e309b1a0250f211b19bcb2f509e5c32524004136`: [CI ผ่าน](https://github.com/poomjakkrapop/Solar-proposal/actions/runs/40177906638), Preview `dpl_9zJTA9FxvK6Jx1F8ufupLDaG8tjH` READY; [ลิงก์รุ่นนั้น](https://solar-proposal-etz10s790-emolaza.vercel.app) และ [branch alias สำหรับทดสอบ](https://solar-proposal-git-fix-readiness-audit-emolaza.vercel.app)
+- Hosted HTTP checks 8 รายการผ่าน: root redirect, login พร้อม private/no-store, anonymous workspace 401, signup 403, cross-origin mutation 403, JSONP 415, JSON เสีย 400 และ auth body เกินขนาด 413 ไม่มีการสร้าง Auth users
+- ผู้ใช้ยืนยันว่าล็อกอินสำเร็จ/เห็นหน้าเริ่มพื้นที่ทำงาน ตรวจฐานข้อมูลแบบอ่านเฉพาะ metadata พบ workspace 1 แห่ง, member 1 คน, revision 1, audit 1 รายการ, customer/proposal 0 รายการ ตรงกับการเริ่มพื้นที่ว่างโดยไม่อัปโหลด demo/local records
+- Browser session ที่ agent ควบคุมยัง redirect ไป login จึงยังไม่รับรองว่า agent ทดสอบ UI ที่ล็อกอินครบวงจร ผล save/reload และหลายบัญชีต้องมีหลักฐานเพิ่ม โดยไม่อ่าน credentials หรือ impersonate ผู้ใช้
+
+## การลดเวลารอ
+
+ตั้ง `regions:["hnd1"]` ใน `vercel.json` ให้รุ่นใหม่ประมวลผลที่โตเกียวใกล้ฐานข้อมูล `ap-northeast-1` แทนค่าเดิมของ Preview ที่ `iad1` และอ่าน membership/workspace list พร้อมกัน จากนั้นอ่าน snapshot/audit พร้อมกันภายใต้ RLS เดิม การยืนยัน identity/membership และ transaction เขียนยังตามลำดับเดิม ไม่มี shared cache ของข้อมูลผู้ใช้ ต้องตรวจ region ของ deployment ใหม่หลัง build; ยังไม่มี benchmark ของ authenticated flow
+
+อ้างอิง: [Vercel function regions](https://vercel.com/docs/functions/configuring-functions/region), [region codes](https://vercel.com/docs/regions)
 
 ## ขั้นตอนทดสอบจริงที่ยังต้องปิด
 

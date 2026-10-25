@@ -58,16 +58,21 @@ async function handle(request: Request) {
         return { id, role: data.role as CloudRole };
       },
       async read(actor, id) {
-        const { data: memberships, error: memberError } = await session.client
-          .from("sd_v2_members")
-          .select("workspace_id,role")
-          .eq("user_id", actor.id)
-          .eq("active", true);
-        const { data: available, error: listError } = await session.client
-          .from("sd_v2_workspaces")
-          .select("id,name,created_at")
-          .order("created_at")
-          .limit(100);
+        const [
+          { data: memberships, error: memberError },
+          { data: available, error: listError },
+        ] = await Promise.all([
+          session.client
+            .from("sd_v2_members")
+            .select("workspace_id,role")
+            .eq("user_id", actor.id)
+            .eq("active", true),
+          session.client
+            .from("sd_v2_workspaces")
+            .select("id,name,created_at")
+            .order("created_at")
+            .limit(100),
+        ]);
         if (memberError || listError)
           throw new CloudError(503, "อ่านพื้นที่ทำงานไม่สำเร็จ");
         const selected = id || available?.[0]?.id;
@@ -77,17 +82,22 @@ async function handle(request: Request) {
         );
         if (!membership)
           throw new CloudError(404, "ไม่พบพื้นที่ทำงานที่เข้าถึงได้");
-        const { data, error } = await session.client
-          .from("sd_v2_workspaces")
-          .select("id,revision,document")
-          .eq("id", selected)
-          .single();
-        const { data: audit, error: auditError } = await session.client
-          .from("sd_v2_audit")
-          .select("id,event,actor_id,revision,created_at")
-          .eq("workspace_id", selected)
-          .order("id", { ascending: false })
-          .limit(30);
+        const [
+          { data, error },
+          { data: audit, error: auditError },
+        ] = await Promise.all([
+          session.client
+            .from("sd_v2_workspaces")
+            .select("id,revision,document")
+            .eq("id", selected)
+            .single(),
+          session.client
+            .from("sd_v2_audit")
+            .select("id,event,actor_id,revision,created_at")
+            .eq("workspace_id", selected)
+            .order("id", { ascending: false })
+            .limit(30),
+        ]);
         if (error || auditError || !data)
           throw new CloudError(503, "อ่านข้อมูลไม่สำเร็จ");
         return {

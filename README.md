@@ -2,7 +2,7 @@
 
 A V2 implementation for the Solar Proposal project with preserved browser-local mode and an optional authenticated shared-workspace backend. This repository is not a complete recovery of the legacy Solar system. Production cutover remains on hold. See [shared-workspace setup/status](docs/SHARED-WORKSPACE.md) and [implementation history](docs/IMPLEMENTATION-STATUS.md).
 
-Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** The user subsequently authorized isolated V2 tables in an existing Supabase project and reuse of its existing Auth accounts. The additive schema has been applied; Preview secret configuration and live Auth/multi-device tests remain pending. No legacy application table or Auth setting was changed.
+Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** The user subsequently authorized isolated V2 tables in an existing Supabase project and reuse of its existing Auth accounts. The additive schema and branch-scoped Preview configuration are active. The owner reports successful login; hosted metadata confirms an initially empty workspace, one member and its creation audit. Business-data save/reload, multi-account and multi-device verification remain pending. No legacy application table or Auth setting was changed.
 
 ## Current scope
 
@@ -16,7 +16,7 @@ Current audit and release decision (2026-10-25): [Thai readiness report](docs/RE
 - Export filtered proposals as CSV or the entire workspace as a JSON backup. Import validates records and previews counts before replacement. CSV cells protect against spreadsheet formula injection.
 - Data is stored locally in one versioned snapshot. Legacy v1 browser data is read without deletion, writes are atomic across customer/proposal updates, and corrupt or unsupported data is never silently reset. Storage changes in other tabs are synchronized.
 - Cooperating tabs serialize writes with Web Locks and reject stale editor/import baselines while retaining drafts. Use a current browser on HTTPS (or localhost); without Web Locks, saving is blocked while reading/export remain available. Reload old tabs to the same version. This does not provide multi-device transactions or server authorization.
-- Shared mode adds server-verified sign-in, role/membership checks, RLS-protected reads, transaction/revision-protected writes, invitations and audit events. It remains disabled until Preview configuration and live checks pass. Registration, recovery and password changes are absent from SolarDesk to preserve the shared Auth application's behavior. Local mode retains its original storage and limitations.
+- Shared mode adds server-verified sign-in, role/membership checks, RLS-protected reads, transaction/revision-protected writes, invitations and audit events. It is enabled only on the configured audit Preview branch while live acceptance tests continue. Registration, recovery and password changes are absent from SolarDesk to preserve the shared Auth application's behavior. Local mode retains its original storage and limitations.
 - Server-generated final PDF/DOCX, remote template uploads and legacy production integration remain incomplete. This version is not approved for sensitive production use.
 
 ## Official form workflow

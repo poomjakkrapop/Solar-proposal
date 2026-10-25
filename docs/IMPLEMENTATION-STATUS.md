@@ -6,7 +6,9 @@ Implementation verified 2026-10-21; deployment checks updated 2026-10-25. No com
 
 The user authorized an existing Supabase project with isolated `sd_v2_*` tables and shared existing Auth accounts. Four RLS-enabled tables and service-only mutation RPCs were added without altering legacy tables, policies or Auth triggers/settings; the checked legacy schema fingerprint is unchanged. Server identity verification, role checks, optimistic revisions, invitation hashes, audit events, private cache headers and shared-mode UI have been implemented. Signup/recovery/password updates are excluded, and logout is local to the current session. See [SHARED-WORKSPACE.md](SHARED-WORKSPACE.md).
 
-Preview-only configuration is prepared with cloud mode disabled until the server secret is set directly and real-account/multi-device checks pass. No production env/alias or deployment-hold change has been made. Existing audit/source/native-document/migration release blockers remain; the historical “no Auth/shared DB” statements below describe earlier versions.
+The owner added the server secret directly to Vercel. Cloud mode is enabled only on Preview branch `fix/readiness-audit`; commit `e309b1a0250f211b19bcb2f509e5c32524004136` passed CI and its Git-triggered deployment is READY. Eight hosted anonymous/auth-contract HTTP checks pass. The owner reports successful sign-in and the hosted SolarDesk tables contain one initially empty workspace, one member and one creation audit. The agent-controlled browser still has a separate unauthenticated session, so this is not recorded as a complete agent-observed browser flow. Customer save/reload and multi-account/multi-device tests remain pending.
+
+The owner also added a Sensitive variable with the same server-secret name to Production. Its value was not read, changed or removed by the agent; the agent configured only Preview variables and has not changed the production alias or main deployment hold. Existing audit/source/native-document/migration release blockers remain; the historical “no Auth/shared DB” and configuration-pending statements below describe earlier versions.
 
 ## Readiness audit update — 2026-10-25
 
