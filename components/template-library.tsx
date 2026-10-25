@@ -7,12 +7,11 @@ import {
   loadTemplates,
   type StoredTemplate,
 } from "../lib/template-store";
-import { buildDocumentValues, documentReadiness } from "../lib/document-data";
-import { generateDocx } from "../lib/template-engine";
-import { downloadBlob } from "../lib/file-download";
+import { documentReadiness } from "../lib/document-data";
 import type { Company, Proposal } from "../lib/workspace";
 import type { TemplateId } from "../lib/template-maps";
 import { WordPreviewDialog } from "./docx-preview";
+import { SolarDocumentDraft } from "./solar-document-draft";
 
 const templates: { id: TemplateId; title: string; description: string }[] = [
   {
@@ -56,27 +55,12 @@ export function TemplateLibrary({
     {},
   );
   const attached = useRef(new Set<TemplateId>());
-  const generation = useRef(0);
-  const [lastDownload, setLastDownload] = useState<{
-    buffer: ArrayBuffer;
-    filename: string;
-    fingerprint: string;
-  }>();
+  const [draftId, setDraftId] = useState<TemplateId>();
   const [preview, setPreview] = useState<{
     title: string;
     buffer: ArrayBuffer;
   }>();
   const proposal = proposals.find((item) => item.id === proposalId);
-  const fingerprint = JSON.stringify({ proposal, company });
-  useEffect(() => {
-    generation.current += 1;
-  }, [fingerprint]);
-  useEffect(
-    () => () => {
-      generation.current += 1;
-    },
-    [],
-  );
   useEffect(() => {
     let active = true;
     void loadTemplates(templates.map((template) => template.id)).then(
@@ -109,7 +93,7 @@ export function TemplateLibrary({
       setMessage(
         template.sessionOnly
           ? "ตรวจต้นแบบผ่านแล้ว ใช้สร้างเอกสารในแท็บนี้ได้ แต่ยังเก็บไว้ในเบราว์เซอร์ไม่ได้ หลังรีเฟรชต้องเลือกไฟล์อีกครั้ง"
-          : "แนบต้นแบบแล้ว กดดาวน์โหลด Word ในการ์ดเอกสารที่ต้องการได้เลย",
+          : "แนบต้นแบบแล้ว เปิดเตรียม Word ฉบับร่าง เพื่อตรวจข้อความก่อนดาวน์โหลด",
       );
     } catch (error) {
       setError(error instanceof Error ? error.message : "แนบต้นแบบไม่สำเร็จ");
@@ -117,7 +101,7 @@ export function TemplateLibrary({
       setBusy(null);
     }
   }
-  async function exportDocument(id: TemplateId) {
+  function openDraft(id: TemplateId) {
     const template = stored[id];
     if (!template) {
       inputs.current[id]?.click();
@@ -132,36 +116,9 @@ export function TemplateLibrary({
       setError("ยังสร้างเอกสารไม่ได้: " + missing.join(" · "));
       return;
     }
-    const ticket = ++generation.current;
-    setBusy(id);
     setError("");
     setMessage("");
-    try {
-      const buffer = await generateDocx(
-        template.buffer,
-        id,
-        buildDocumentValues(proposal, company),
-      );
-      if (ticket !== generation.current)
-        throw new Error(
-          "ข้อมูลเอกสารเปลี่ยนระหว่างสร้าง กรุณากดดาวน์โหลดใหม่เพื่อใช้ข้อมูลล่าสุด",
-        );
-      const filename = `${proposal.documentNumber || proposal.id}-${id === "approval" ? "อนุมัติประมาณการ" : "แจ้งค่าใช้จ่าย-ใบเสนอราคา"}.docx`;
-      downloadBlob(
-        new Blob([buffer], {
-          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        }),
-        filename,
-      );
-      setLastDownload({ buffer, filename, fingerprint });
-      setMessage(
-        "ส่งไฟล์ Word ให้เบราว์เซอร์แล้ว หากไม่เห็นไฟล์ให้เปิดรายการดาวน์โหลดของเบราว์เซอร์ หรือกดดาวน์โหลดไฟล์ล่าสุดอีกครั้งด้านล่าง กรุณาตรวจใน Microsoft Word ก่อนใช้จริง",
-      );
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "สร้างเอกสารไม่สำเร็จ");
-    } finally {
-      setBusy(null);
-    }
+    setDraftId(id);
   }
   return (
     <div className="template-workspace">
@@ -214,37 +171,12 @@ export function TemplateLibrary({
           {message}
         </p>
       )}
-      {lastDownload?.fingerprint === fingerprint && (
-        <div className="template-download-actions">
-          <span>{lastDownload.filename}</span>
-          <button
-            className="secondary-button"
-            onClick={() =>
-              downloadBlob(
-                new Blob([lastDownload.buffer], {
-                  type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                }),
-                lastDownload.filename,
-              )
-            }
-          >
-            <Download size={16} />
-            ดาวน์โหลดไฟล์ล่าสุดอีกครั้ง
-          </button>
-          <button
-            className="secondary-button"
-            onClick={() =>
-              setPreview({
-                title: "ตัวอย่างเอกสารที่สร้าง",
-                buffer: lastDownload.buffer,
-              })
-            }
-          >
-            <Eye size={16} />
-            ดูตัวอย่างเอกสารที่สร้าง
-          </button>
-        </div>
-      )}
+      <ol className="document-steps" aria-label="ขั้นตอนสร้างเอกสาร">
+        <li>เลือกโครงการ</li>
+        <li>แนบต้นแบบ</li>
+        <li>ตรวจร่าง</li>
+        <li>ดาวน์โหลด Word</li>
+      </ol>
       <div className="official-template-grid">
         {templates.map((template) => {
           const file = stored[template.id];
@@ -258,6 +190,15 @@ export function TemplateLibrary({
               </div>
               <h2>{template.title}</h2>
               <p>{template.description}</p>
+              <span
+                className={`template-readiness ${file && !missing.length ? "ready" : ""}`}
+              >
+                {file
+                  ? missing.length
+                    ? "รอเติมข้อมูล"
+                    : "พร้อมตรวจร่าง"
+                  : "รอแนบต้นแบบ"}
+              </span>
               {!file && (
                 <div className="template-source-needed" role="status">
                   <strong>
@@ -270,7 +211,7 @@ export function TemplateLibrary({
                     {template.id === "approval"
                       ? "อนุมัติประมาณการ (Solar).docx"
                       : "แจ้งค่าใช้จ่าย+ใบเสนอราคา (ฟอร์ม กฟภ.).docx"}{" "}
-                    ที่เคยใช้กับระบบ แล้วกดดาวน์โหลด Word
+                    ที่เคยใช้กับระบบ แล้วเปิดตรวจร่างก่อนดาวน์โหลด
                   </p>
                 </div>
               )}
@@ -334,14 +275,14 @@ export function TemplateLibrary({
               <button
                 className="primary-button"
                 disabled={(!!file && missing.length > 0) || busy !== null}
-                onClick={() => void exportDocument(template.id)}
+                onClick={() => openDraft(template.id)}
               >
                 <Download size={16} />
                 {busy === template.id
                   ? "กำลังดำเนินการ…"
                   : !file
                     ? "แนบต้นแบบเพื่อสร้าง Word"
-                    : "ดาวน์โหลด Word ฉบับร่าง"}
+                    : "เตรียม Word ฉบับร่าง"}
               </button>
             </article>
           );
@@ -351,6 +292,17 @@ export function TemplateLibrary({
         ต้นแบบเก็บในเบราว์เซอร์นี้เท่านั้น ไฟล์สำรอง JSON
         เก็บข้อมูลข้อเสนอและหน่วยงาน ส่วนไฟล์ต้นแบบ DOCX ให้เก็บแยกไว้ด้วย
       </p>
+      {draftId && proposal && stored[draftId] && (
+        <SolarDocumentDraft
+          key={`${proposal.id}:${draftId}`}
+          id={draftId}
+          title={templates.find((item) => item.id === draftId)!.title}
+          proposal={proposal}
+          company={company}
+          file={stored[draftId]}
+          onClose={() => setDraftId(undefined)}
+        />
+      )}
       {preview && (
         <WordPreviewDialog
           title={preview.title}

@@ -6,6 +6,12 @@ import {
 } from "../lib/document-data.ts";
 import { defaultSolarDetails, defaultOfficialProfile } from "../lib/solar.ts";
 import { templateMaps } from "../lib/template-maps.ts";
+import {
+  draftValueErrors,
+  prepareSolarDraft,
+  safeDraftFilename,
+  solarDraftFields,
+} from "../lib/document-draft.ts";
 const solar = {
   ...defaultSolarDetails(13),
   issueDate: "2026-10-15",
@@ -113,4 +119,111 @@ test("manually reviewed quantity columns do not silently follow optimizer or pan
   );
   assert.equal(values.templateQuantity4, "7");
   assert.equal(values.templateQuantity5, "9");
+});
+
+test("a saved price differing from the computed estimate blocks both Solar forms without rewriting the record", () => {
+  const imported = structuredClone({ ...proposal, amount: 100 });
+  const before = JSON.stringify(imported);
+  for (const id of ["approval", "quotation"]) {
+    assert.ok(
+      documentReadiness(imported, company, id).some((message) =>
+        message.includes("ยอดขายที่บันทึก"),
+      ),
+    );
+    assert.deepEqual(prepareSolarDraft(imported, company, id).values, {});
+  }
+  assert.equal(JSON.stringify(imported), before);
+});
+test("whitespace cannot satisfy required quotation fields or enable optional banking instructions", () => {
+  const missing = documentReadiness(
+    {
+      ...proposal,
+      solar: {
+        ...solar,
+        letterReference: " ",
+        panelBrand: "\t",
+        inverterBrand: " ",
+        inverterModel: " ",
+      },
+    },
+    {
+      ...company,
+      official: { ...company.official, addressLine1: " ", addressLine2: " " },
+    },
+    "quotation",
+  );
+  assert.equal(missing.length, 4);
+  const values = buildDocumentValues(proposal, {
+    ...company,
+    official: {
+      ...company.official,
+      bankAccountNumber: " ",
+      bankName: " ",
+      chequePayee: " ",
+    },
+  });
+  assert.ok(!values.paymentInstruction.includes("เลขที่บัญชี"));
+  assert.ok(!values.paymentInstruction.includes("เช็คขีดคร่อม"));
+});
+test("large or malformed estimates fail closed before a review editor can throw during rendering", () => {
+  for (const changes of [
+    { baseCost: 1e12, operationsRate: 100, profitRate: 100, vatRate: 100 },
+    { baseCost: -1 },
+  ]) {
+    const result = prepareSolarDraft(
+      { ...proposal, solar: { ...solar, ...changes } },
+      company,
+      "approval",
+    );
+    assert.ok(result.missing.length);
+    assert.deepEqual(result.values, {});
+  }
+});
+test("Solar review covers every mapped field and keeps figures, quantities and payment composites read-only", () => {
+  for (const map of templateMaps) {
+    const fields = solarDraftFields(map.id);
+    assert.deepEqual(
+      fields.map((field) => field.key),
+      [...new Set(map.slots.map((slot) => slot.key))],
+    );
+    const prepared = prepareSolarDraft(proposal, company, map.id);
+    assert.equal(prepared.missing.length, 0);
+    assert.deepEqual(draftValueErrors(fields, prepared.values), []);
+    for (const key of [
+      "total",
+      "subtotal",
+      "vat",
+      "totalWords",
+      "paymentInstruction",
+      "panelCount",
+      "templateQuantity4",
+      "firstPaymentText",
+      "branchName",
+      "siteFullAddress",
+    ])
+      if (fields.some((field) => field.key === key))
+        assert.equal(
+          fields.find((field) => field.key === key).readOnly,
+          true,
+          key,
+        );
+    assert.equal(
+      fields.find((field) => field.key === "customerName").readOnly,
+      false,
+    );
+  }
+});
+test("draft text rejects XML controls and unbounded text; filenames cannot introduce paths", () => {
+  const fields = [{ key: "text", label: "ข้อความ" }];
+  assert.ok(draftValueErrors(fields, { text: "bad\u0000value" }).length);
+  assert.ok(draftValueErrors(fields, { text: "a".repeat(8001) }).length);
+  assert.ok(draftValueErrors(fields, {}).length);
+  assert.deepEqual(
+    draftValueErrors(fields, { text: "ข้อความ <&> ทดสอบ\nบรรทัดใหม่" }),
+    [],
+  );
+  assert.equal(
+    safeDraftFilename("../QT/256910:001", "approval"),
+    "___QT_256910_001_approval_DRAFT.docx",
+  );
 });

@@ -44,8 +44,8 @@ import {
   SummaryMetrics,
 } from "../components/pipeline-chart";
 import { ProposalPrint } from "../components/proposal-print";
+import { ConfirmLeaveDialog } from "./confirm-leave-dialog";
 import {
-  customerStats,
   dateLabel,
   defaultCompany,
   money,
@@ -60,6 +60,7 @@ import {
   type Status,
   type Workspace,
 } from "../lib/workspace";
+import { summarizeCustomers } from "../lib/customer-summaries";
 import type { CloudBinding } from "../lib/use-cloud-workspace";
 import { useWorkspace } from "../lib/use-workspace";
 import { defaultCatalog } from "../lib/catalog";
@@ -72,8 +73,14 @@ import {
   EstimateSummary,
   OfficialProfileSettings,
 } from "../components/solar-fields";
-import { TemplateLibrary } from "../components/template-library";
 import { defaultProcurement } from "../lib/procurement";
+const TemplateLibrary = dynamic(
+  () =>
+    import("../components/template-library").then(
+      (module) => module.TemplateLibrary,
+    ),
+  { loading: () => <p role="status">กำลังเปิดฟอร์มเอกสาร…</p> },
+);
 const ProcurementWorkspace = dynamic(
   () =>
     import("../components/procurement-workspace").then(
@@ -325,23 +332,48 @@ export default function SolarWorkspace({
   cloud?: CloudBinding;
 }) {
   const [view, setViewState] = useState<View>("ภาพรวม");
+  const [requestedView, setRequestedView] = useState<View | null>(null);
   const pendingProcurement = useRef(false);
   const pendingCatalog = useRef(false);
+  const pendingCompany = useRef(false);
+  const pendingOfficial = useRef(false);
   const catalogDirty = useCallback((value: boolean) => {
     pendingCatalog.current = value;
+  }, []);
+  const companyDirty = useCallback((value: boolean) => {
+    pendingCompany.current = value;
+  }, []);
+  const officialDirty = useCallback((value: boolean) => {
+    pendingOfficial.current = value;
+  }, []);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!pendingCompany.current && !pendingOfficial.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
   }, []);
   function setView(next: View) {
     if (
       next !== view &&
-      (pendingProcurement.current || pendingCatalog.current) &&
-      !window.confirm(
-        "มีข้อมูลที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้และทิ้งเฉพาะการแก้ไขที่ยังไม่บันทึกหรือไม่?",
-      )
-    )
+      (pendingProcurement.current ||
+        pendingCatalog.current ||
+        pendingCompany.current ||
+        pendingOfficial.current)
+    ) {
+      setRequestedView(next);
       return;
+    }
+    applyView(next);
+  }
+  function applyView(next: View) {
     if (next !== view) {
       pendingProcurement.current = false;
       pendingCatalog.current = false;
+      pendingCompany.current = false;
+      pendingOfficial.current = false;
     }
     setViewState(next);
   }
@@ -384,29 +416,29 @@ export default function SolarWorkspace({
     }
   }, [toast]);
 
+  const normalizedQuery = query.toLowerCase();
   const visibleProposals = useMemo(
     () =>
       proposals.filter((p) => {
         const matchesQuery = `${p.id} ${p.customer} ${p.contact} ${p.location}`
           .toLowerCase()
-          .includes(query.toLowerCase());
+          .includes(normalizedQuery);
         return matchesQuery && (filter === "ทั้งหมด" || p.status === filter);
       }),
-    [proposals, query, filter],
+    [proposals, normalizedQuery, filter],
+  );
+  const customerSummaries = useMemo(
+    () => summarizeCustomers(customers, proposals),
+    [customers, proposals],
   );
   const visibleCustomers = useMemo(
     () =>
-      customers
-        .map((customer) => ({
-          ...customer,
-          ...customerStats(customer, proposals),
-        }))
-        .filter((c) =>
-          `${c.name} ${c.contact} ${c.phone} ${c.location}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-        ),
-    [customers, proposals, query],
+      customerSummaries.filter((customer) =>
+        `${customer.name} ${customer.contact} ${customer.phone} ${customer.location}`
+          .toLowerCase()
+          .includes(normalizedQuery),
+      ),
+    [customerSummaries, normalizedQuery],
   );
   const openProposal = (
     proposal: Proposal | null = null,
@@ -1191,6 +1223,7 @@ export default function SolarWorkspace({
                 workspace={workspace}
                 shared={!!cloud}
                 readOnly={readOnly}
+                onDirtyChange={companyDirty}
                 onSave={(next, baseline) =>
                   commit((current) => {
                     assertUnchanged(current.company, baseline, "ข้อมูลบริษัท", [
@@ -1226,6 +1259,7 @@ export default function SolarWorkspace({
             <OfficialProfileSettings
               value={company.official}
               readOnly={readOnly}
+              onDirtyChange={officialDirty}
               onSave={(official, baseline) =>
                 commit((current) => {
                   assertUnchanged(
@@ -1431,6 +1465,15 @@ export default function SolarWorkspace({
             <X size={15} />
           </button>
         </div>
+      )}
+      {requestedView && (
+        <ConfirmLeaveDialog
+          onStay={() => setRequestedView(null)}
+          onLeave={() => {
+            applyView(requestedView);
+            setRequestedView(null);
+          }}
+        />
       )}
     </main>
   );

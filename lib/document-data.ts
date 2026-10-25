@@ -15,15 +15,30 @@ export function documentReadiness(
 ): string[] {
   const missing: string[] = [];
   const profile = { ...defaultOfficialProfile, ...company.official };
-  if (!proposal.documentNumber)
+  if (!proposal.documentNumber?.trim())
     missing.push("เลขใบเสนอราคา (บันทึกแบบฟอร์มเพื่อสร้างเลขอัตโนมัติ)");
   if (!profile.branchName.trim())
     missing.push("ชื่อหน่วยงานเต็มในตั้งค่าบริษัท");
   if (!proposal.solar)
     return [...missing, "รายละเอียดระบบและประมาณการในฟอร์มใบเสนอราคา"];
   const solar = proposal.solar;
+  let total: number;
+  try {
+    total = calculateEstimate(solar, proposal.amount).total;
+    if (total > 1e12)
+      missing.push("ยอดคำนวณเกินขอบเขตเอกสารที่รองรับ กรุณาตรวจประมาณการ");
+    const satang = (value: number) =>
+      Math.round(value * 100 + Number.EPSILON * Math.max(1, value * 100));
+    if (satang(total) !== satang(proposal.amount))
+      missing.push(
+        "ยอดขายที่บันทึกไม่ตรงกับประมาณการ กรุณาเปิดแก้ไขข้อเสนอ ตรวจยอด และบันทึกอีกครั้ง",
+      );
+  } catch {
+    missing.push("ข้อมูลประมาณการไม่ถูกต้อง กรุณาแก้ไขและบันทึกข้อเสนอ");
+    return missing;
+  }
   if (kind === "approval") {
-    if (calculateEstimate(solar, proposal.amount).total > profile.approvalLimit)
+    if (total > profile.approvalLimit)
       missing.push("ยอดรวมเกินวงเงินอำนาจอนุมัติ กรุณาตรวจผู้มีอำนาจและวงเงิน");
     if (solar.pricingMode !== "turnkey" || solar.baseCost <= 0)
       missing.push("ต้นทุนและวิธีคำนวณ Turnkey สำหรับบันทึกอนุมัติ");
@@ -36,14 +51,19 @@ export function documentReadiness(
     ])
       if (!value.trim()) missing.push(label);
   } else {
-    if (!solar.letterReference) missing.push("เลขที่หนังสือแจ้งค่าใช้จ่าย");
-    if (!profile.addressLine1 || !profile.addressLine2)
+    if (!solar.letterReference.trim())
+      missing.push("เลขที่หนังสือแจ้งค่าใช้จ่าย");
+    if (!profile.addressLine1.trim() || !profile.addressLine2.trim())
       missing.push("ที่อยู่หน่วยงานในตั้งค่าบริษัท");
-    if (!solar.panelBrand || solar.panelWatt <= 0 || solar.panelCount <= 0)
+    if (
+      !solar.panelBrand.trim() ||
+      solar.panelWatt <= 0 ||
+      solar.panelCount <= 0
+    )
       missing.push("ยี่ห้อ กำลัง และจำนวนแผง PV");
     if (
-      !solar.inverterBrand ||
-      !solar.inverterModel ||
+      !solar.inverterBrand.trim() ||
+      !solar.inverterModel.trim() ||
       solar.inverterKw <= 0 ||
       solar.inverterCount <= 0
     )
@@ -66,9 +86,9 @@ export function buildDocumentValues(
     .join(" ");
   const blank = (value: string) => value.trim() || "________________";
   let paymentInstruction = `จึงเรียนมาเพื่อโปรดทราบ และพิจารณานำเงินจำนวน ${total} บาท (${totalWords}) ไปชำระที่${profile.branchName}`;
-  if (profile.bankAccountNumber && profile.bankName)
+  if (profile.bankAccountNumber.trim() && profile.bankName.trim())
     paymentInstruction += ` หรือโอนเงินเข้าบัญชีออมทรัพย์ ${profile.bankName}${profile.bankBranch ? ` สาขา${profile.bankBranch}` : ""} เลขที่บัญชี ${profile.bankAccountNumber} ชื่อบัญชี${profile.bankAccountName || profile.branchName}`;
-  if (profile.chequePayee)
+  if (profile.chequePayee.trim())
     paymentInstruction += ` หรือจัดทำเช็คขีดคร่อม (account payee only) สั่งจ่าย ${profile.chequePayee}`;
   paymentInstruction +=
     " เพื่อจะได้ดำเนินการติดตั้งระบบผลิตไฟฟ้าจากพลังงานแสงอาทิตย์ให้ต่อไป";

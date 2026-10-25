@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { procurementTemplateMaps } from "../lib/procurement-template-maps.ts";
 import {
   buildProcurementDocumentValues,
+  prepareProcurementDraft,
   procurementDocumentReadiness,
   unresolvedProcurementFields,
 } from "../lib/procurement-document-data.ts";
@@ -11,6 +12,25 @@ import {
   defaultProcurementDocument,
 } from "../lib/procurement.ts";
 import { defaultSolarDetails, defaultOfficialProfile } from "../lib/solar.ts";
+test("oversized calculated sales text blocks procurement preparation without crashing the workspace", () => {
+  const result = prepareProcurementDraft(
+    {
+      ...proposal,
+      solar: {
+        ...proposal.solar,
+        pricingMode: "turnkey",
+        baseCost: 1e12,
+        operationsRate: 100,
+        profitRate: 100,
+        vatRate: 100,
+      },
+    },
+    company,
+    "supervision",
+  );
+  assert.deepEqual(result.values, {});
+  assert.ok(result.errors.length);
+});
 import {
   loadProcurementReferences,
   attachProcurementReference,

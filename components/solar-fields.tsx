@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Calculator, ChevronDown, FileText, Save, Sun } from "lucide-react";
 import {
   calculateEstimate,
@@ -501,9 +501,11 @@ export function OfficialProfileSettings({
   value,
   onSave,
   readOnly = false,
+  onDirtyChange,
 }: {
   value?: OfficialProfile;
   readOnly?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
   onSave: (
     value: OfficialProfile,
     baseline: OfficialProfile | undefined,
@@ -515,10 +517,15 @@ export function OfficialProfileSettings({
   } | null>(null);
   const profile = draft?.profile || { ...defaultOfficialProfile, ...value };
   const [saved, setSaved] = useState(false);
+  useEffect(
+    () => () => onDirtyChange?.(false),
+    [onDirtyChange],
+  );
   function updateProfile<K extends keyof OfficialProfile>(
     key: K,
     next: OfficialProfile[K],
   ) {
+    onDirtyChange?.(true);
     setSaved(false);
     setDraft((current) => ({
       baseline: current ? current.baseline : value,
@@ -546,6 +553,7 @@ export function OfficialProfileSettings({
           ) {
             setSaved(true);
             setDraft(null);
+            onDirtyChange?.(false);
           }
         }}
       >

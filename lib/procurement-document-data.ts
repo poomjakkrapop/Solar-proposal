@@ -401,3 +401,23 @@ export function buildProcurementDocumentValues(
 }
 export const unresolvedProcurementFields = (values: Record<string, string>) =>
   Object.entries(values).filter(([, value]) => value.includes("[รอกรอก:"));
+
+export function prepareProcurementDraft(
+  proposal: Proposal,
+  company: Company,
+  id: ProcurementDocumentId,
+) {
+  try {
+    return {
+      values: buildProcurementDocumentValues(proposal, company, id),
+      errors: [] as string[],
+    };
+  } catch {
+    return {
+      values: {} as Record<string, string>,
+      errors: [
+        "เตรียมข้อมูลจัดจ้างไม่สำเร็จ กรุณาตรวจประมาณการและข้อมูลกลางของโครงการ",
+      ],
+    };
+  }
+}

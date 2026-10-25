@@ -1,6 +1,6 @@
 # Word download and procurement drafts
 
-Updated 2026-10-25. This adds draft export behavior to the existing Preview; it is not a production cutover or approval of official legal documents.
+Updated 2026-10-26. All 13 forms now share a review/acknowledgement/download dialog. See [Solar form correctness, UX and performance review](FORM-REVIEW-UX.md). This updates the existing Preview; it is not a production cutover or approval of official legal documents.
 
 ## Using the forms
 
@@ -22,7 +22,7 @@ For form 23, attach the reviewed Word conversion `23-supervision-template.docx`.
 
 ## Verification evidence and limits
 
-- 73 unit/Postgres checks and 6 optimized HTTP checks pass (79 total), covering existing Auth/RLS/revisions/backups plus template cache isolation, original rejection, download dispatch/retry, all eleven maps/data fields and DOC/DOCX attachment order/fallback behavior. ESLint and the optimized Next.js build pass.
+- 82 unit/Postgres checks and 6 optimized HTTP checks pass (88 total), covering existing Auth/RLS/revisions/backups plus template cache isolation, original rejection, download dispatch/retry, all eleven maps/data fields, DOC/DOCX attachment order/fallback, Solar amount/whitespace/large-import readiness and indexed customer-summary parity. ESLint and the optimized Next.js build pass.
 - Browser integration generated/downloaded the first ten DOCX outputs from exact originals with synthetic project data. The eleventh supervision draft also passed actual UI download, identical-byte retry and DOC/DOCX retention after reload. Private ZIP/XML comparisons confirmed unchanged original hashes, identical non-text document/header structure, unchanged preserve-only parts and absence of the source sample identities/identifiers checked across XML parts. The supervision output retained all 16 package parts and original line breaks; its actual handover, supervision findings and completion recommendation remain unresolved draft fields.
 - Actual Solar memo/quotation downloads, identical-byte retry and attachment retention after reload passed. The procurement UI attached 11 references, opened its draft editor and downloaded a generated DOCX. Browser preview is content-only.
 - Native renderer was attempted and failed because bundled LibreOffice is absent. Final Word pagination, review of applicable contract alternatives and final PDF issuance remain pending. No test output or original document is published in this repository.

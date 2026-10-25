@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { calculateEstimate } from "../lib/solar";
 import { SolarFields } from "./solar-fields";
 import {
@@ -396,6 +396,7 @@ export function CompanySettings({
   onImport,
   shared = false,
   readOnly = false,
+  onDirtyChange,
 }: {
   workspace: Workspace;
   onSave: (company: Company, baseline: Company) => Promise<boolean>;
@@ -403,12 +404,17 @@ export function CompanySettings({
   onImport: (workspace: Workspace, baseline: Workspace) => Promise<boolean>;
   shared?: boolean;
   readOnly?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [companyBase, setCompanyBase] = useState<Company | null>(null);
   const [companyError, setCompanyError] = useState("");
   const companyValue = companyBase || workspace.company;
+  useEffect(
+    () => () => onDirtyChange?.(false),
+    [onDirtyChange],
+  );
   const [pendingImport, setPendingImport] = useState<{
     data: Workspace;
     baseline: Workspace;
@@ -450,6 +456,7 @@ export function CompanySettings({
           key={JSON.stringify(companyValue)}
           onChange={() => {
             if (!companyBase) setCompanyBase(workspace.company);
+            onDirtyChange?.(true);
             setMessage("");
             setCompanyError("");
           }}
@@ -466,6 +473,7 @@ export function CompanySettings({
             };
             if (await onSave(company, companyValue)) {
               setCompanyBase(null);
+              onDirtyChange?.(false);
               setMessage("บันทึกข้อมูลบริษัทแล้ว");
               setCompanyError("");
             } else

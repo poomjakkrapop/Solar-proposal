@@ -90,7 +90,7 @@ export function WordPreviewDialog({
   buffer: ArrayBuffer;
   onClose: () => void;
 }) {
-  const container = useRef<HTMLDivElement>(null);
+  const container = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -100,45 +100,23 @@ export function WordPreviewDialog({
         : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusable = () =>
-      Array.from(
-        container.current?.querySelectorAll<HTMLElement>(
-          'button, a[href], [tabindex="0"]',
-        ) || [],
-      );
-    focusable()[0]?.focus();
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        close.current();
-      }
-      if (event.key !== "Tab") return;
-      const elements = focusable();
-      const first = elements[0];
-      const last = elements.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
-    window.addEventListener("keydown", keydown);
+    container.current?.showModal();
     return () => {
-      window.removeEventListener("keydown", keydown);
       document.body.style.overflow = previousOverflow;
       previous?.focus();
     };
   }, []);
   return (
-    <div
+    <dialog
       ref={container}
       tabIndex={-1}
       className="word-preview-overlay"
-      role="dialog"
-      aria-modal="true"
       aria-label={title}
+      onCancel={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        close.current();
+      }}
     >
       <div className="word-preview-toolbar">
         <strong>{title}</strong>
@@ -151,6 +129,6 @@ export function WordPreviewDialog({
         </button>
       </div>
       <WordPreview buffer={buffer} />
-    </div>
+    </dialog>
   );
 }

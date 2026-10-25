@@ -1,5 +1,9 @@
 # SolarDesk implementation status
 
+## Solar review and UX follow-up — 2026-10-26
+
+Both Solar forms now use the same review/acknowledgement/export dialog as all eleven procurement forms. Saved monetary/composite data stays consistent; mismatched imported prices, whitespace required fields and oversized preparation failures are handled explicitly. Company/official settings retain independent dirty guards, with an in-app navigation choice. Templates load on demand and customer search reuses indexed summaries. The final build's homepage First Load JS is 134 kB versus 143 kB before this change; this measures bundle size, not hosted latency. Automated verification is 82 unit/Postgres checks plus 6 optimized HTTP checks; lint/build and dependency audit pass, with zero advisories reported on 2026-10-26. Actual Solar/procurement downloads, retry, stale-source rejection, settings save/navigation and 390-pixel responsive checks are documented in [FORM-REVIEW-UX.md](FORM-REVIEW-UX.md). Production cutover remains on hold; no database/Auth/dependency change is included.
+
 Implementation verified 2026-10-21; deployment checks updated 2026-10-25. No completed production cutover: the original live application remains active.
 
 ## Shared workspace follow-up — 2026-10-25
