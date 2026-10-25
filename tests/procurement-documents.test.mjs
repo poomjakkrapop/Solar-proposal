@@ -14,6 +14,11 @@ import { defaultSolarDetails, defaultOfficialProfile } from "../lib/solar.ts";
 import {
   loadProcurementReferences,
   attachProcurementReference,
+  getProcurementReference,
+  referenceKey,
+  legacyReferenceKey,
+  resolveProcurementSource,
+  mergeProcurementReference,
 } from "../lib/procurement-references.ts";
 const company = {
   name: "Synthetic",
@@ -69,11 +74,11 @@ const proposal = {
     ),
   },
 };
-test("all ten DOCX templates have complete data slots, unique source hashes and no overlapping ranges", () => {
-  assert.equal(procurementTemplateMaps.length, 10);
+test("all eleven DOCX templates have complete data slots, unique source hashes and no overlapping ranges", () => {
+  assert.equal(procurementTemplateMaps.length, 11);
   assert.equal(
     new Set(procurementTemplateMaps.map((item) => item.sha256)).size,
-    10,
+    11,
   );
   for (const map of procurementTemplateMaps) {
     assert.deepEqual(
@@ -138,7 +143,7 @@ test("inspection results, evidence and approval are never inferred from a templa
     values,
   );
 });
-test("missing data and legacy DOC have an explicit readiness message instead of an empty export", () => {
+test("missing central data has an explicit readiness message instead of an empty export", () => {
   const empty = { ...proposal, procurement: defaultProcurement() };
   const missing = procurementDocumentReadiness(empty, company, "invitation");
   assert.ok(missing.some((item) => item.includes("ชื่อผู้รับจ้าง")));
@@ -158,19 +163,16 @@ test("missing data and legacy DOC have an explicit readiness message instead of 
     ).p65,
     /รอกรอก/,
   );
-  assert.ok(
-    procurementDocumentReadiness(proposal, company, "supervision").some(
-      (item) => item.includes("DOC รุ่นเก่า"),
-    ),
-  );
-  assert.throws(() =>
-    buildProcurementDocumentValues(proposal, company, "supervision"),
+  assert.deepEqual(
+    procurementDocumentReadiness(proposal, company, "supervision"),
+    [],
   );
 });
 test("an unreadable procurement cache entry cannot hide another verified reference", async () => {
   const valid = {
     id: "procurement:invitation",
     filename: "synthetic.docx",
+    format: "docx",
     buffer: new ArrayBuffer(1),
     attachedAt: "2026-10-25T00:00:00Z",
   };
@@ -194,4 +196,116 @@ test("unreviewed procurement file is rejected before any private persistence", a
     /ไม่ตรง/,
   );
   assert.equal(writes, 0);
+});
+
+test("approved Word container hashes select the DOCX conversion or legacy DOC independently of its filename", () => {
+  const map = procurementTemplateMaps.find((item) => item.id === "supervision");
+  const legacyHash =
+    "0e1d1959a2b58c7b9f59060a96e91c281b2f687f8bb0ca152c292ed94f072269";
+  assert.equal(resolveProcurementSource(map.sha256).format, "docx");
+  assert.equal(resolveProcurementSource(legacyHash).format, "doc");
+  assert.equal(
+    resolveProcurementSource(legacyHash).key,
+    "procurement:supervision",
+  );
+  assert.notEqual(
+    referenceKey("supervision"),
+    legacyReferenceKey("supervision"),
+  );
+  assert.equal(resolveProcurementSource("f".repeat(64)), undefined);
+  for (const item of procurementTemplateMaps)
+    assert.equal(resolveProcurementSource(item.sha256).format, "docx");
+});
+test("conversion cache and original DOC cache are hash-checked separately; one corrupt variant cannot hide the other", async () => {
+  const modern = {
+    id: referenceKey("supervision"),
+    filename: "synthetic.docx",
+    buffer: new ArrayBuffer(2),
+    attachedAt: "2026-10-25T00:00:00Z",
+  };
+  const legacy = {
+    ...modern,
+    id: legacyReferenceKey("supervision"),
+    filename: "synthetic.doc",
+    buffer: new ArrayBuffer(3),
+  };
+  const calls = [];
+  const both = await getProcurementReference(
+    "supervision",
+    async (key, hash) => {
+      calls.push({ key, hash });
+      return key === modern.id ? modern : legacy;
+    },
+  );
+  assert.equal(both.format, "docx");
+  assert.equal(both.buffer, modern.buffer);
+  assert.equal(both.legacy, legacy);
+  assert.equal(calls.length, 2);
+  assert.notEqual(calls[0].hash, calls[1].hash);
+  const fallback = await getProcurementReference("supervision", async (key) => {
+    if (key === modern.id) throw Error("corrupt conversion");
+    return legacy;
+  });
+  assert.equal(fallback.format, "doc");
+  assert.equal(fallback.buffer, legacy.buffer);
+  const missingModern = await getProcurementReference(
+    "supervision",
+    async (key) => (key === modern.id ? undefined : legacy),
+  );
+  assert.equal(missingModern.format, "doc");
+  const badLegacy = await getProcurementReference(
+    "supervision",
+    async (key) => {
+      if (key === legacy.id) throw Error("corrupt original cache");
+      return modern;
+    },
+  );
+  assert.equal(badLegacy.format, "docx");
+  assert.equal(badLegacy.buffer, modern.buffer);
+});
+test("attaching the DOC and DOCX in either order keeps the original and never downgrades the draft template", () => {
+  const legacy = {
+    id: legacyReferenceKey("supervision"),
+    filename: "legacy.docx.doc",
+    buffer: new ArrayBuffer(3),
+    attachedAt: "2026-10-25T00:00:00Z",
+    format: "doc",
+  };
+  const modern = {
+    ...legacy,
+    id: referenceKey("supervision"),
+    filename: "converted.docx",
+    buffer: new ArrayBuffer(4),
+    format: "docx",
+    sessionOnly: true,
+  };
+  for (const [first, second] of [
+    [legacy, modern],
+    [modern, legacy],
+  ]) {
+    const merged = mergeProcurementReference(first, second);
+    assert.equal(merged.format, "docx");
+    assert.equal(merged.buffer, modern.buffer);
+    assert.equal(merged.legacy.buffer, legacy.buffer);
+    assert.equal(merged.sessionOnly, true);
+  }
+});
+test("supervision uses saved project references but leaves handover, observed results and recommendations unresolved", () => {
+  const values = buildProcurementDocumentValues(
+    proposal,
+    company,
+    "supervision",
+  );
+  assert.match(values.p7, /WO-QA/);
+  assert.match(values.p8, /PO-QA/);
+  assert.match(values.p8, /QA contractor/);
+  assert.match(values.p8, /267,500.00/);
+  for (const key of ["p10", "p11", "p13"])
+    assert.match(values[key], /^\[รอกรอก:/);
+  const next = structuredClone(proposal);
+  next.procurement.documents.supervision.state = "ตรวจทานแล้ว";
+  assert.deepEqual(
+    buildProcurementDocumentValues(next, company, "supervision"),
+    values,
+  );
 });

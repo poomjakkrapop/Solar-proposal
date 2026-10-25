@@ -11,6 +11,7 @@ export type ProcurementReference = {
   sha256: string;
   format: string;
   previewable: boolean;
+  legacy?: { sha256: string; format: "doc" };
 };
 export const procurementStages: {
   id: ProcurementStage;
@@ -204,10 +205,15 @@ export const procurementReferences: ProcurementReference[] = [
       "ผลตรวจหน้างาน",
       "ปัญหา/การแก้ไข",
     ],
-    note: "เป็น Word รุ่นเก่า (.doc) ต้องมีสำเนา .docx ที่ตรวจเทียบแล้วก่อนตั้งค่าช่องข้อมูล",
-    sha256: "0e1d1959a2b58c7b9f59060a96e91c281b2f687f8bb0ca152c292ed94f072269",
-    format: "doc",
-    previewable: false,
+    note: "แนบ 23-supervision-template.docx ที่บันทึกเป็น Word Document เพื่อสร้างร่าง ผลควบคุมงานต้องกรอกตามข้อเท็จจริง ส่วน DOC เดิมเก็บอ้างอิงแยกได้",
+    sha256: "39f69b9e92be70cde78ea643e9f32f88b4b5886c9e8d9ec4b9767b53bdd1e96f",
+    format: "docx",
+    previewable: true,
+    legacy: {
+      sha256:
+        "0e1d1959a2b58c7b9f59060a96e91c281b2f687f8bb0ca152c292ed94f072269",
+      format: "doc",
+    },
   },
   {
     id: "acceptance",

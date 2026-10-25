@@ -76,7 +76,7 @@ GitHub `poomjakkrapop/Solar-proposal` มี source รุ่นใหม่บ�
 | 19 แจ้งลงนามในสัญญา              | DOCX อ้างอิง/ติดตาม; ยังไม่สร้างอัตโนมัติ                                   |
 | 20 เอกสารแนบการลงนาม             | DOCX อ้างอิง/ติดตาม; ยังไม่สร้างอัตโนมัติ                                   |
 | 22 สัญญาจ้างทำของ                | DOCX อ้างอิง/ติดตาม; ยังไม่สร้างอัตโนมัติ                                   |
-| 23 รายงานควบคุมงาน               | legacy DOC เก็บเป็นอ้างอิง; ไม่ render/ไม่สร้าง จนได้ DOCX ที่ตรวจเทียบแล้ว |
+| 23 รายงานควบคุมงาน               | สร้างร่างจาก DOCX ที่แปลงใน Word และตรวจ hash/XML แล้ว; DOC เดิมเก็บแยก |
 | 24 รายงานตรวจรับ                 | DOCX อ้างอิง/ติดตาม; ยังไม่สร้างอัตโนมัติ                                   |
 
 รวม 12 DOCX + 1 DOC ต้นฉบับไม่ถูกแก้ไข เอกสารอ้างอิงที่แนบอยู่ใน IndexedDB ของ origin นั้นเท่านั้น Browser preview ไม่ใช่ผลตรวจ Word/PDF รูปแบบพร้อมออกเอกสาร
@@ -152,4 +152,4 @@ Rollback โค้ด Preview ใช้ deployment ก่อนหน้าห�
 
 ## Document download update — 2026-10-25
 
-The missing-original button now opens a picker and explains browser/origin storage; download/retry dispatch uses an attached anchor with a one-minute object-URL lifetime. Ten procurement DOCX references now support editable draft exports through 211 reviewed own-text slots. The older read-only status in this report is superseded by [DOCUMENT-DOWNLOADS.md](DOCUMENT-DOWNLOADS.md). One legacy DOC still supports original-reference download only. Native Word/PDF and official template/legal review remain unapproved; production cutover remains No-Go.
+The missing-original button now opens a picker and explains browser/origin storage; download/retry dispatch uses an attached anchor with a one-minute object-URL lifetime. All eleven procurement DOCX references now support editable draft exports through 221 reviewed own-text slots. The supervision reference was converted in Microsoft Word; actual draft download/retry, cache retention after reload, unchanged legacy DOC download and private ZIP/XML structure/privacy checks passed. DOC and DOCX retain independent exact-hash storage keys and work in either attachment order. Actual supervision and handover findings remain unresolved draft fields. Validation is now 73 unit/Postgres + 6 optimized HTTP checks (79), with ESLint/build passing. The older read-only status in this report is superseded by [DOCUMENT-DOWNLOADS.md](DOCUMENT-DOWNLOADS.md). Native final-draft Word/PDF and official template/legal review remain unapproved; production cutover remains No-Go.

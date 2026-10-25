@@ -27,7 +27,7 @@ Next.js 15.5.20 App Router, React 19.1, Prisma 6.19.3/PostgreSQL, bcrypt แล�
 | Template: DOCX placeholder ที่เก็บใน DB, 9 ประเภท                                      | exact-hash ต้นแบบส่วนตัว 2 แบบใน IndexedDB                             | migration metadata+binary/checksum, รองรับต้นแบบที่อนุมัติและตรวจ mapping/render ทุกแบบ      |
 | PDF builders: quotation, approval, cover, techspec, scope, payment, warranty, schedule | browser print/draft DOCX                                               | คืนความสามารถ PDF ทั้ง 8 แบบและรวมเอกสาร พร้อม native visual acceptance                      |
 | FileBlob: logo/signature/stamp/template                                                | ต้นแบบส่วนตัว origin-local                                             | backup/restore bytes+MIME+refs แบบตรวจ hash และ migration ที่ไม่ลบของเดิม                    |
-| procurement อ้างอิง 11 แบบที่ผู้ใช้ส่งภายหลัง                                          | ติดตามข้อมูล/แนบ/สร้างร่าง DOCX 10 แบบ; DOC เก่า 1 แบบดาวน์โหลดอ้างอิง | ต้องตรวจตัวเลือก/ข้อสัญญาและ Word/PDF; แปลงและ audit DOC เก่า                                |
+| procurement อ้างอิง 11 แบบที่ผู้ใช้ส่งภายหลัง                                          | ติดตามข้อมูล/แนบ/สร้างร่าง DOCX ครบ 11 แบบ; DOC เก่าเก็บอ้างอิงแยก | ต้องตรวจตัวเลือก/ข้อสัญญาและ native Word/PDF ทุกฉบับ ดู [DOCUMENT-DOWNLOADS.md](DOCUMENT-DOWNLOADS.md) |
 
 ## ผล dependency/security review
 

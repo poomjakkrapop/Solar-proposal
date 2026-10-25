@@ -26,6 +26,7 @@ import {
 import {
   attachProcurementReference,
   loadProcurementReferences,
+  mergeProcurementReference,
   type StoredProcurementReference,
 } from "../lib/procurement-references";
 import { money, type Company, type Proposal } from "../lib/workspace";
@@ -72,7 +73,15 @@ export function ProcurementWorkspace({
     let active = true;
     loadProcurementReferences().then(({ files, errors }) => {
       if (!active) return;
-      setReferences((current) => ({ ...files, ...current }));
+      setReferences((current) => {
+        const next = { ...files };
+        for (const item of procurementReferences) {
+          const selected = current[item.id];
+          if (selected)
+            next[item.id] = mergeProcurementReference(next[item.id], selected);
+        }
+        return next;
+      });
       if (!attachedIds.current.size) setError(errors.join(" · "));
     });
     return () => {
@@ -93,7 +102,10 @@ export function ProcurementWorkspace({
         attachedIds.current.add(result.id);
         setReferences((current) => ({
           ...current,
-          [result.id]: result.stored,
+          [result.id]: mergeProcurementReference(
+            current[result.id],
+            result.stored,
+          ),
         }));
         count++;
       } catch (error) {
@@ -104,7 +116,7 @@ export function ProcurementWorkspace({
     }
     setMessage(
       count
-        ? `แนบต้นแบบ ${count} ไฟล์แล้ว เปิด “เตรียม Word ฉบับร่าง” ที่การ์ดเอกสารได้เลย`
+        ? `แนบต้นแบบ ${count} ไฟล์แล้ว · DOCX ใช้สร้างร่าง ส่วน DOC เก็บอ้างอิง`
         : "",
     );
     setError(failures.join(" · "));
@@ -155,15 +167,21 @@ export function ProcurementWorkspace({
           />
         </label>
         <span className="reference-count">
-          ต้นแบบ {Object.keys(references).length} / 11 ไฟล์
+          ต้นแบบ {Object.keys(references).length} / 11 แบบ · DOCX{" "}
+          {
+            Object.values(references).filter((file) => file?.format === "docx")
+              .length
+          }{" "}
+          / 11 แบบ
         </span>
       </section>
       <p className="document-review-notice">
-        สร้าง Word ฉบับร่างจากต้นแบบ DOCX 10 แบบได้
+        สร้าง Word ฉบับร่างจากต้นแบบ DOCX ครบ 11 แบบได้
         โดยเติมข้อมูลจากโครงการและตรวจข้อความก่อนดาวน์โหลด ไม่มีการลงนาม อนุมัติ
         หรือยืนยันผลตรวจรับอัตโนมัติ ต้นแบบเก็บเฉพาะเบราว์เซอร์และ URL นี้
         แยกจากข้อมูลโครงการบนเซิร์ฟเวอร์ หากเปลี่ยนเครื่องหรือ URL ต้องแนบใหม่
-        ไฟล์ DOC รุ่นเก่าดาวน์โหลดเป็นต้นแบบอ้างอิงได้
+        ฟอร์มควบคุมงานใช้สำเนา DOCX ที่แปลงและตรวจแล้ว ส่วน DOC
+        เดิมยังเก็บและดาวน์โหลดอ้างอิงได้
       </p>
       {error && (
         <p className="form-error" role="alert">
@@ -374,6 +392,9 @@ function ProcurementProject({
                   const item =
                     draft.documents[template.id] || defaultProcurementDocument;
                   const attached = references[template.id];
+                  const draftable = attached?.format === "docx";
+                  const legacy =
+                    attached?.format === "doc" ? attached : attached?.legacy;
                   return (
                     <article
                       className="panel procurement-document-card"
@@ -398,7 +419,8 @@ function ProcurementProject({
                             ? "ต้นแบบพร้อมใช้ในแท็บนี้ · รีเฟรชแล้วต้องแนบใหม่"
                             : "ต้นแบบแนบแล้ว · เก็บในเบราว์เซอร์นี้"
                           : "ยังไม่ได้แนบต้นแบบ"}
-                        {!template.previewable && " · DOC รุ่นเก่า"}
+                        {attached?.format === "doc" &&
+                          " · DOC รุ่นเก่า ต้องแนบสำเนา DOCX เพื่อสร้างร่าง"}
                       </p>
                       {attached && (
                         <p className="template-filename">{attached.filename}</p>
@@ -507,21 +529,21 @@ function ProcurementProject({
                       <button
                         className="secondary-button"
                         type="button"
-                        disabled={!attached || !template.previewable}
+                        disabled={!draftable}
                         onClick={() => onPreview(template.id)}
                       >
                         <Eye size={15} />
-                        {template.previewable
+                        {draftable
                           ? "ดูต้นแบบอ้างอิง"
-                          : "ต้องแปลงเป็น DOCX ก่อน"}
+                          : "แนบต้นแบบ DOCX เพื่อดูตัวอย่าง"}
                       </button>
                       <label className="template-upload-label">
                         <Upload size={15} />
                         {attached ? "เปลี่ยนต้นแบบ" : "แนบต้นแบบ"}{" "}
-                        {template.format.toUpperCase()}
+                        {template.legacy ? "DOC / DOCX" : "DOCX"}
                         <input
                           type="file"
-                          accept={`.${template.format}`}
+                          accept={template.legacy ? ".doc,.docx" : ".docx"}
                           aria-label={`แนบต้นแบบ ${template.title}`}
                           disabled={busy}
                           ref={(node) => {
@@ -537,49 +559,51 @@ function ProcurementProject({
                       <button
                         type="button"
                         className="primary-button"
-                        disabled={
-                          busy ||
-                          (!!attached &&
-                            template.previewable &&
-                            (dirty || conflict))
-                        }
+                        disabled={busy || (draftable && (dirty || conflict))}
                         onClick={() => {
-                          if (!attached) {
+                          if (!draftable) {
                             fileInputs.current[template.id]?.click();
                             return;
                           }
-                          if (template.previewable)
-                            setDraftDocument(template.id);
-                          else
+                          setDraftDocument(template.id);
+                        }}
+                      >
+                        <Download size={15} />
+                        {!attached
+                          ? "แนบต้นแบบเพื่อดาวน์โหลด"
+                          : draftable
+                            ? "เตรียม Word ฉบับร่าง"
+                            : "แนบ DOCX เพื่อสร้างร่าง"}
+                      </button>
+                      {legacy && (
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => {
                             try {
                               downloadBlob(
-                                new Blob([attached.buffer], {
+                                new Blob([legacy.buffer], {
                                   type: "application/msword",
                                 }),
-                                `ต้นแบบอ้างอิง_${attached.filename}`,
+                                `ต้นแบบอ้างอิง_${legacy.filename}`,
                               );
                             } catch {
                               setError(
                                 "เบราว์เซอร์ไม่รับคำสั่งดาวน์โหลด กรุณาลองใหม่",
                               );
                             }
-                        }}
-                      >
-                        <Download size={15} />
-                        {!attached
-                          ? "แนบต้นแบบเพื่อดาวน์โหลด"
-                          : template.previewable
-                            ? "เตรียม Word ฉบับร่าง"
-                            : "ดาวน์โหลดต้นแบบ DOC อ้างอิง"}
-                      </button>
-                      {attached &&
-                        template.previewable &&
-                        (dirty || conflict) && (
-                          <p className="field-hint">
-                            บันทึกข้อมูลชุดจัดจ้างก่อนเปิดร่าง Word
-                            เพื่อใช้ข้อมูลล่าสุด
-                          </p>
-                        )}
+                          }}
+                        >
+                          <Download size={15} />
+                          ดาวน์โหลดต้นแบบ DOC เดิม
+                        </button>
+                      )}
+                      {attached && draftable && (dirty || conflict) && (
+                        <p className="field-hint">
+                          บันทึกข้อมูลชุดจัดจ้างก่อนเปิดร่าง Word
+                          เพื่อใช้ข้อมูลล่าสุด
+                        </p>
+                      )}
                     </article>
                   );
                 })}

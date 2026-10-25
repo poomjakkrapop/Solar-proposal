@@ -8,17 +8,69 @@ import {
 } from "./private-files.ts";
 import type { ProcurementDocumentId } from "./procurement.ts";
 export type StoredProcurementReference = PrivateFile & {
+  format: "doc" | "docx";
   sessionOnly?: boolean;
+  legacy?: PrivateFile;
 };
-export const referenceKey = (id: ProcurementDocumentId) =>
+// The existing legacy key is never overwritten by a converted template.
+export const legacyReferenceKey = (id: ProcurementDocumentId) =>
   `procurement:${id}` as const;
-export const getProcurementReference = (id: ProcurementDocumentId) => {
-  const reference = procurementReferences.find((entry) => entry.id === id);
-  if (!reference) throw new Error("ไม่พบประเภทต้นแบบจัดจ้าง");
-  return readPrivateFile(referenceKey(id), reference.sha256);
+export const referenceKey = (id: ProcurementDocumentId) => {
+  const reference = procurementReferences.find((item) => item.id === id);
+  return reference?.legacy ? `procurement:${id}:docx` : legacyReferenceKey(id);
 };
+type PrivateReader = (
+  id: string,
+  hash: string,
+) => Promise<PrivateFile | undefined>;
+export async function getProcurementReference(
+  id: ProcurementDocumentId,
+  read: PrivateReader = readPrivateFile,
+): Promise<StoredProcurementReference | undefined> {
+  const reference = procurementReferences.find((item) => item.id === id);
+  if (!reference) throw new Error("ไม่พบประเภทต้นแบบจัดจ้าง");
+  const sources = [
+    { key: referenceKey(id), hash: reference.sha256, format: "docx" as const },
+    ...(reference.legacy
+      ? [
+          {
+            key: legacyReferenceKey(id),
+            hash: reference.legacy.sha256,
+            format: "doc" as const,
+          },
+        ]
+      : []),
+  ];
+  const results = await Promise.allSettled(
+    sources.map((source) =>
+      Promise.resolve().then(() => read(source.key, source.hash)),
+    ),
+  );
+  const primary =
+    results[0].status === "fulfilled" ? results[0].value : undefined;
+  const legacy =
+    results[1]?.status === "fulfilled" ? results[1].value : undefined;
+  if (primary)
+    return { ...primary, format: "docx", ...(legacy ? { legacy } : {}) };
+  if (legacy) return { ...legacy, format: "doc" };
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed?.status === "rejected") throw failed.reason;
+  return undefined;
+}
+export function mergeProcurementReference(
+  previous: StoredProcurementReference | undefined,
+  incoming: StoredProcurementReference,
+): StoredProcurementReference {
+  if (incoming.format === "doc")
+    return previous?.format === "docx"
+      ? { ...previous, legacy: incoming }
+      : incoming;
+  const legacy =
+    previous?.format === "doc" ? previous : previous?.legacy || incoming.legacy;
+  return { ...incoming, ...(legacy ? { legacy } : {}) };
+}
 export async function loadProcurementReferences(
-  read = getProcurementReference,
+  read = (id: ProcurementDocumentId) => getProcurementReference(id),
 ) {
   const results = await Promise.allSettled(
     procurementReferences.map((item) =>
@@ -39,6 +91,25 @@ export async function loadProcurementReferences(
   });
   return { files, errors };
 }
+export function resolveProcurementSource(hash: string) {
+  for (const template of procurementReferences) {
+    if (template.sha256 === hash)
+      return {
+        id: template.id,
+        key: referenceKey(template.id),
+        format: "docx" as const,
+        hash,
+      };
+    if (template.legacy?.sha256 === hash)
+      return {
+        id: template.id,
+        key: legacyReferenceKey(template.id),
+        format: "doc" as const,
+        hash,
+      };
+  }
+  return undefined;
+}
 export async function attachProcurementReference(
   file: File,
   expectedId?: ProcurementDocumentId,
@@ -47,27 +118,28 @@ export async function attachProcurementReference(
   if (file.size > 10 * 1024 * 1024 || !/\.docx?$/i.test(file.name))
     throw new Error("เลือกไฟล์ DOC/DOCX ขนาดไม่เกิน 10 MB ต่อไฟล์");
   const buffer = await file.arrayBuffer();
-  const hash = await digestFile(buffer);
-  const template = procurementReferences.find((entry) => entry.sha256 === hash);
-  if (!template)
+  const source = resolveProcurementSource(await digestFile(buffer));
+  if (!source)
     throw new Error(
       `${file.name}: ไม่ตรงกับต้นแบบจัดจ้างที่ตรวจไว้ จึงไม่ได้บันทึก`,
     );
-  if (expectedId && template.id !== expectedId)
+  if (expectedId && source.id !== expectedId)
     throw new Error("ไฟล์นี้เป็นต้นแบบคนละประเภท กรุณาแนบให้ตรงกับการ์ดเอกสาร");
-  const id = referenceKey(template.id);
   const selected = {
-    id,
+    id: source.key,
     filename: file.name,
     buffer,
     attachedAt: new Date().toISOString(),
   };
-  await verifyPrivateFile(selected, id, template.sha256);
+  await verifyPrivateFile(selected, source.key, source.hash);
   let stored: StoredProcurementReference;
   try {
-    stored = await persist(id, file.name, buffer, hash);
+    stored = {
+      ...(await persist(source.key, file.name, buffer, source.hash)),
+      format: source.format,
+    };
   } catch {
-    stored = { ...selected, sessionOnly: true };
+    stored = { ...selected, format: source.format, sessionOnly: true };
   }
-  return { id: template.id, stored };
+  return { id: source.id, stored };
 }

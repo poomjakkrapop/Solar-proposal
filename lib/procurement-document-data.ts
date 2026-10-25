@@ -26,7 +26,7 @@ export function procurementDocumentReadiness(
   const missing: string[] = [];
   if (!isProcurement(data)) missing.push("ข้อมูลจัดจ้างไม่ถูกต้อง");
   if (!procurementTemplateMaps.some((item) => item.id === id))
-    missing.push("ต้นแบบ DOC รุ่นเก่ายังไม่รองรับการสร้าง DOCX");
+    missing.push("ยังไม่มีการตั้งค่าต้นแบบ DOCX สำหรับเอกสารนี้");
   if (!data.projectTitle.trim()) missing.push("ชื่องานจัดจ้าง");
   if (!doc.reference.trim()) missing.push("เลขอ้างอิงเอกสารนี้");
   if (!doc.date) missing.push("วันที่เอกสารนี้");
@@ -333,6 +333,24 @@ export function buildProcurementDocumentValues(
         p118: signature,
         p121: signature,
         p124: signature,
+      },
+      supervision: {
+        p2: `จาก ผู้ควบคุมงาน ${blank(data.supervisor, "ชื่อผู้ควบคุมงาน")} ถึง คณะกรรมการตรวจรับ`,
+        p3: refDate,
+        p4: `เรื่อง รายงานผลการควบคุมงาน ${title} ให้กับ ${proposal.customer}`,
+        p7: `1.1 ตามรายงานขอจ้าง ${documentRef("hire-request")} Work Order ${workOrder} ${draftPlaceholder("หนังสือแต่งตั้งผู้ควบคุมงานและวันที่")}`,
+        p8: `1.2 ตามใบสั่งจ้าง ${purchaseOrder} ${draftPlaceholder("วันที่ใบสั่งจ้าง")} ${branch} จ้าง ${contractor} งาน ${title} ให้กับ ${proposal.customer} ราคาตกลงจ้าง ${agreed} กำหนดส่งมอบ ${days}`,
+        p10: draftPlaceholder(
+          "เลขหนังสือส่งมอบ วันที่ และรายการงานที่ผู้รับจ้างส่งจริง",
+        ),
+        p11: draftPlaceholder(
+          "วันควบคุมงาน ผลตรวจหน้างาน ปัญหา และการแก้ไขตามหลักฐานจริง",
+        ),
+        p13: draftPlaceholder(
+          "ข้อพิจารณาของผู้ควบคุมงาน วันที่แล้วเสร็จจริง และข้อเสนอถึงคณะกรรมการตรวจรับ",
+        ),
+        p18: `(${blank(data.supervisor, "ชื่อผู้ควบคุมงาน")})`,
+        p19: draftPlaceholder("ตำแหน่งผู้ควบคุมงาน"),
       },
       acceptance: {
         p1: `จาก คณะกรรมการตรวจรับ ถึง ${branch}`,
