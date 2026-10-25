@@ -3,8 +3,11 @@ import { digestFile, readPrivateFile, savePrivateFile } from "./private-files";
 import type { ProcurementDocumentId } from "./procurement";
 export const referenceKey = (id: ProcurementDocumentId) =>
   `procurement:${id}` as const;
-export const getProcurementReference = (id: ProcurementDocumentId) =>
-  readPrivateFile(referenceKey(id));
+export const getProcurementReference = (id: ProcurementDocumentId) => {
+  const reference = procurementReferences.find((entry) => entry.id === id);
+  if (!reference) throw new Error("ไม่พบประเภทต้นแบบจัดจ้าง");
+  return readPrivateFile(referenceKey(id), reference.sha256);
+};
 export async function attachProcurementReference(file: File) {
   if (file.size > 10 * 1024 * 1024 || !/\.docx?$/i.test(file.name))
     throw new Error("เลือกไฟล์ DOC/DOCX ขนาดไม่เกิน 10 MB ต่อไฟล์");

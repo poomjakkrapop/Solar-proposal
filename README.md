@@ -2,6 +2,8 @@
 
 A fresh, isolated, browser-local implementation for the Solar Proposal project. This repository contains the reviewed V2 application, not a complete recovery of the legacy system. The application does not connect to the existing production database. Deployment status and release limitations are recorded in [docs/IMPLEMENTATION-STATUS.md](docs/IMPLEMENTATION-STATUS.md).
 
+Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** Isolated Supabase provisioning is waiting for free project capacity that the user will provide; no existing project was paused, deleted or reused.
+
 ## Current scope
 
 - Responsive Thai-language workspace with dashboard, proposals, customers, catalog, and templates.
@@ -13,6 +15,7 @@ A fresh, isolated, browser-local implementation for the Solar Proposal project. 
 - Procurement workspace registers 11 additional references across customer service, selection, contracting, and delivery/acceptance. Store project-specific contractor/PO/WO/budget/date/committee information separately from the customer and sales price. Track each document's reference/date/internal review status without implying a signature or approval. All records remain in the versioned workspace backup.
 - Export filtered proposals as CSV or the entire workspace as a JSON backup. Import validates records and previews counts before replacement. CSV cells protect against spreadsheet formula injection.
 - Data is stored locally in one versioned snapshot. Legacy v1 browser data is read without deletion, writes are atomic across customer/proposal updates, and corrupt or unsupported data is never silently reset. Storage changes in other tabs are synchronized.
+- Cooperating tabs serialize writes with Web Locks and reject stale editor/import baselines while retaining drafts. Use a current browser on HTTPS (or localhost); without Web Locks, saving is blocked while reading/export remain available. Reload old tabs to the same version. This does not provide multi-device transactions or server authorization.
 - No authentication, shared database, server-generated PDF/DOCX, remote template uploads, or production integrations are enabled yet. This browser-local prototype is not suitable for sensitive production records or multi-user access.
 
 ## Official form workflow
@@ -59,7 +62,7 @@ npm run build
 
 The data-integrity tests require Node.js 22.18+ (Node.js 24 is used locally). Tests cover backup round trips, legacy migration, corrupted/versioned data, ID collisions, customer renames, numeric validation, CSV injection, sample estimate arithmetic, Thai baht text and document slot coverage. Private reference audits are intentionally outside this app directory.
 
-Security check on 2026-10-21: Next.js 15.5.28, Sharp 0.35.5 and a PostCSS 8.5.31 override remove the previously reported production dependency advisories (`npm audit --omit=dev`: zero). Full audit still reports five high-severity entries from the same development-only `braces` → `micromatch` → `fast-glob` → Next lint chain. The registry offers no patched braces release; do not blindly downgrade Next lint or apply a forced major upgrade. Lint processes controlled repository patterns and CI has a 15-minute timeout. Track the upstream fix and rerun both audits regularly. This dependency check is not a complete application security audit.
+Security check on 2026-10-25: full `npm audit --json` reports **zero advisories** for the current lockfile, including development dependencies. This supersedes the five development-only advisories observed on 2026-10-21; no forced dependency changes were made in this audit. Next.js is 15.5.28, with a PostCSS 8.5.31 override. Rerun audits before release; this dependency result is not a complete application security audit.
 
 ## GitHub and Vercel workflow
 
@@ -74,7 +77,7 @@ Do not commit `.env`, original customer documents, private recovery files or dat
 ## Remaining roadmap
 
 - Finish native document layout QA, review the source table quantities/page fields and legal/payment boilerplate, then add tested final PDF generation.
-- Recover the full legacy source/schema and audit its auth, server actions and API routes. Build a feature/data compatibility matrix before replacing anything.
+- Finish the full legacy source review and audit its auth, server actions and API routes. The complete Prisma schema has been recovered privately (eight models); the feature/data compatibility matrix and a lossless migration are still incomplete.
 - Add server-side authentication, tenant/role authorization, validated CRUD and audit logs with a disposable database first. Import local records only through a reviewed migration; do not point this prototype at production.
 - Verify remote CI and Git-triggered Preview deployments; add reviewed branch protection and a production approval gate before removing the `main` deployment hold. Preserve the old application and a tested rollback path.
 

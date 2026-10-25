@@ -5,7 +5,11 @@ import {
   type PrivateFile,
 } from "./private-files";
 export type StoredTemplate = PrivateFile<TemplateId>;
-export const getTemplate = (id: TemplateId) => readPrivateFile(id);
+export const getTemplate = (id: TemplateId) => {
+  const map = templateMaps.find((entry) => entry.id === id);
+  if (!map) throw new Error("ไม่พบประเภทต้นแบบ");
+  return readPrivateFile(id, map.sha256);
+};
 export async function attachTemplate(
   id: TemplateId,
   file: File,

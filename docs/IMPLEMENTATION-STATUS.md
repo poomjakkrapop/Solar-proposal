@@ -2,6 +2,14 @@
 
 Implementation verified 2026-10-21; deployment checks updated 2026-10-25. No completed production cutover: the original live application remains active.
 
+## Readiness audit update — 2026-10-25
+
+The current findings and release decision are in [READINESS-AUDIT.md](READINESS-AUDIT.md). Production remains **No-Go**. This update supersedes historical test/advisory/schema counts below: 36 tests pass; full dependency audit reports zero advisories; the complete 8-model legacy Prisma schema has been recovered privately, while full legacy source/security/parity review remains incomplete. Build first-load JavaScript is approximately 137 kB.
+
+This branch adds frozen editor/import baselines, cross-tab exclusive write locks, draft preservation, cached-template integrity checks, async Word-preview isolation and an honest local-mode/help UI. Real browser tests include simultaneous writes: one company save succeeds and the other is rejected without losing its draft. Existing production/database, original forms and the main deployment hold are preserved.
+
+Supabase staging creation was approved only at no cost, but failed at the active free-project quota. No new project exists and no current project was changed. The user will provide free staging capacity/project; actual Auth, RLS, shared database and migration/restore verification remain pending. Native DOCX rendering remains unavailable because the bundled runtime lacks LibreOffice. Remote branch/PR checks must be verified after publication; older local-upload deployments below are not proof of this branch's provenance.
+
 Deployment preflight rechecked 2026-10-22: all 26 tests, ESLint and the optimized build pass; production dependency audit reports zero vulnerabilities. Added `.vercelignore` to exclude secrets, original documents, local outputs and build caches. After deliberate user approval of the official CLI device-authorization flow, access to emolaza/solar-proposal was verified. A process-only ASCII-hostname workaround avoids Vercel CLI 54.18.2's OAuth header failure on this machine; it does not modify the hostname, installed CLI or existing credentials.
 
 ## Preview deployment — 2026-10-22

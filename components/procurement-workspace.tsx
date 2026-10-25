@@ -28,7 +28,7 @@ type SaveProcurement = (
   id: string,
   value: Procurement,
   expected: string,
-) => boolean;
+) => Promise<boolean>;
 type StoredReferences = Partial<Record<ProcurementDocumentId, PrivateFile>>;
 export function ProcurementWorkspace({
   proposals,
@@ -256,7 +256,7 @@ function ProcurementProject({
   ).length;
   return (
     <form
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
         if (!isProcurement(draft)) {
           setError(
@@ -270,7 +270,7 @@ function ProcurementProject({
           );
           return;
         }
-        if (onSave(proposal.id, draft, base)) {
+        if (await onSave(proposal.id, draft, base)) {
           setBase(JSON.stringify(draft));
           setSaved(true);
           setError("");

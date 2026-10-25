@@ -1,5 +1,7 @@
 "use client";
 
+import { assertUnchanged } from "../lib/edit-conflict";
+
 import {
   ArrowRight,
   Bell,
@@ -85,7 +87,7 @@ type View =
   | "เทมเพลต"
   | "จัดจ้าง"
   | "ตั้งค่าบริษัท";
-type Modal = "proposal" | "customer" | "detail" | null;
+type Modal = "proposal" | "customer" | "detail" | "help" | null;
 
 const seedProposals: Proposal[] = [
   {
@@ -325,9 +327,12 @@ export default function Home() {
   }
   const [modal, setModal] = useState<Modal>(null);
   const [activeProposalId, setActiveProposalId] = useState<string | null>(null);
+  const [proposalEditorBase, setProposalEditorBase] = useState<Proposal | null>(
+    null,
+  );
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<string>();
-  const { workspace, commit, ready, storageError } =
+  const { workspace, commit, ready, saving, storageError } =
     useWorkspace(initialWorkspace);
   const { proposals, customers, company } = workspace;
   const activeProposal =
@@ -385,14 +390,30 @@ export default function Home() {
     packageName?: string,
   ) => {
     setActiveProposalId(proposal?.id || null);
+    setProposalEditorBase(null);
     setSelectedPackage(packageName);
     setModal(proposal ? "detail" : "proposal");
   };
   function openCustomer(customer: Customer | null = null) {
-    setEditingCustomer(customer);
+    setEditingCustomer(
+      customers.find((item) => item.id === customer?.id) || customer,
+    );
     setModal("customer");
   }
-  function createProposal(form: FormData) {
+  function editProposal(proposal: Proposal) {
+    setActiveProposalId(proposal.id);
+    setProposalEditorBase(proposal);
+    setModal("proposal");
+  }
+  async function createProposal(form: FormData) {
+    const original = proposalEditorBase;
+    if (original)
+      assertUnchanged(
+        proposals.find((item) => item.id === original.id),
+        original,
+        "ใบเสนอราคา",
+        ["procurement", "updated"],
+      );
     const now = new Date().toISOString();
     const year = new Intl.DateTimeFormat("en", {
       timeZone: "Asia/Bangkok",
@@ -423,15 +444,21 @@ export default function Home() {
       enteredNumber &&
       proposals.some(
         (item) =>
-          item.id !== activeProposal?.id &&
-          item.documentNumber === enteredNumber,
+          item.id !== original?.id && item.documentNumber === enteredNumber,
       )
     )
       throw new Error("เลขใบเสนอราคานี้มีในระบบแล้ว");
     const expiry = new Date(`${solar.issueDate}T00:00:00Z`);
     expiry.setUTCDate(expiry.getUTCDate() + solar.validDays);
     const system = positiveNumber(form.get("system"), "ขนาดระบบ");
-    const saved = commit((current) => {
+    const saved = await commit((current) => {
+      if (original)
+        assertUnchanged(
+          current.proposals.find((item) => item.id === original.id),
+          original,
+          "ใบเสนอราคา",
+          ["procurement", "updated"],
+        );
       let customer =
         current.customers.find((item) => item.id === form.get("customerId")) ||
         current.customers.find(
@@ -453,7 +480,7 @@ export default function Home() {
         nextCustomers = [customer, ...current.customers];
       }
       const proposal: Proposal = {
-        id: activeProposal?.id || nextId(current.proposals, `SP-${year}-`),
+        id: original?.id || nextId(current.proposals, `SP-${year}-`),
         customerId: customer.id,
         customer: customerName,
         contact,
@@ -462,18 +489,17 @@ export default function Home() {
         system,
         package: requiredText(form.get("package"), "แพ็กเกจ"),
         amount,
-        status: activeProposal?.status || "ร่าง",
-        created: activeProposal?.created || now,
+        status: original?.status || "ร่าง",
+        created: original?.created || now,
         updated: now,
         notes: String(form.get("notes") || "").trim(),
         validUntil: expiry.toISOString().slice(0, 10),
         solar,
-        procurement: current.proposals.find(
-          (item) => item.id === activeProposal?.id,
-        )?.procurement,
+        procurement: current.proposals.find((item) => item.id === original?.id)
+          ?.procurement,
         documentNumber:
           enteredNumber ||
-          activeProposal?.documentNumber ||
+          original?.documentNumber ||
           nextId(
             current.proposals.map((item) => ({
               id: item.documentNumber || "",
@@ -484,7 +510,7 @@ export default function Home() {
       return {
         ...current,
         customers: nextCustomers,
-        proposals: activeProposal
+        proposals: original
           ? current.proposals.map((item) =>
               item.id === proposal.id ? proposal : item,
             )
@@ -497,12 +523,16 @@ export default function Home() {
       );
     setModal(null);
     setToast(
-      activeProposal
-        ? "บันทึกการแก้ไขใบเสนอราคาแล้ว"
-        : "สร้างใบเสนอราคาแบบร่างแล้ว",
+      original ? "บันทึกการแก้ไขใบเสนอราคาแล้ว" : "สร้างใบเสนอราคาแบบร่างแล้ว",
     );
   }
-  function createCustomer(form: FormData) {
+  async function createCustomer(form: FormData) {
+    if (editingCustomer)
+      assertUnchanged(
+        customers.find((item) => item.id === editingCustomer.id),
+        editingCustomer,
+        "ข้อมูลลูกค้า",
+      );
     const customer: Customer = {
       id: editingCustomer?.id || nextId(customers, "C-"),
       name: requiredText(form.get("name"), "ชื่อลูกค้า"),
@@ -522,22 +552,42 @@ export default function Home() {
     )
       throw new Error("มีชื่อลูกค้านี้แล้ว กรุณาเลือกแก้ไขรายชื่อเดิม");
     if (
-      !commit((current) => ({
-        ...current,
-        customers: editingCustomer
-          ? current.customers.map((item) =>
-              item.id === customer.id ? customer : item,
-            )
-          : [customer, ...current.customers],
+      !(await commit((current) => {
+        if (editingCustomer)
+          assertUnchanged(
+            current.customers.find((item) => item.id === editingCustomer.id),
+            editingCustomer,
+            "ข้อมูลลูกค้า",
+          );
+        const next = {
+          ...customer,
+          id: editingCustomer?.id || nextId(current.customers, "C-"),
+        };
+        if (
+          current.customers.some(
+            (item) =>
+              item.id !== next.id &&
+              item.name.toLocaleLowerCase() === next.name.toLocaleLowerCase(),
+          )
+        )
+          throw new Error("มีชื่อลูกค้านี้แล้ว กรุณาเลือกแก้ไขรายชื่อเดิม");
+        return {
+          ...current,
+          customers: editingCustomer
+            ? current.customers.map((item) =>
+                item.id === next.id ? next : item,
+              )
+            : [next, ...current.customers],
+        };
       }))
     )
       throw new Error("บันทึกข้อมูลลูกค้าไม่สำเร็จ");
     setModal(null);
     setToast(editingCustomer ? "บันทึกการแก้ไขลูกค้าแล้ว" : "เพิ่มลูกค้าแล้ว");
   }
-  function changeStatus(id: string, status: Status) {
+  async function changeStatus(id: string, status: Status) {
     if (
-      commit((current) => ({
+      await commit((current) => ({
         ...current,
         proposals: current.proposals.map((p) =>
           p.id === id ? { ...p, status, updated: new Date().toISOString() } : p,
@@ -564,7 +614,11 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell" aria-busy={!ready}>
+    <main
+      className="app-shell"
+      aria-busy={!ready || saving}
+      inert={!ready || saving ? true : undefined}
+    >
       <aside
         className={`sidebar ${mobileMenu ? "sidebar-open" : ""}`}
         inert={isMobile && !mobileMenu ? true : undefined}
@@ -627,10 +681,7 @@ export default function Home() {
             <Settings2 size={18} strokeWidth={1.8} />
             <span>ตั้งค่าบริษัท</span>
           </button>
-          <button
-            className="nav-item"
-            onClick={() => setToast("ศูนย์ช่วยเหลือ: ติดต่อผู้ดูแลระบบของคุณ")}
-          >
+          <button className="nav-item" onClick={() => setModal("help")}>
             <CircleHelp size={18} strokeWidth={1.8} />
             <span>ช่วยเหลือ</span>
           </button>
@@ -644,22 +695,20 @@ export default function Home() {
             <p>
               จัดการทุกข้อเสนอไว้ในที่เดียว ตั้งแต่ลูกค้าใหม่จนถึงวันติดตั้ง
             </p>
-            <button
-              onClick={() =>
-                setToast("ระบบตัวอย่าง: ยินดีต้อนรับสู่ SolarDesk")
-              }
-            >
+            <button onClick={() => setModal("help")}>
               ดูวิธีใช้งาน <ArrowRight size={14} />
             </button>
           </div>
-          <button className="profile">
-            <div className="profile-avatar">PK</div>
+          <div
+            className="profile"
+            aria-label="โหมดในเครื่อง ยังไม่มีระบบบัญชีผู้ใช้"
+          >
+            <div className="profile-avatar">LS</div>
             <div className="profile-info">
-              <strong>คุณพีค</strong>
-              <span>ผู้ดูแลระบบ</span>
+              <strong>โหมดในเครื่อง</strong>
+              <span>ยังไม่ได้เข้าสู่ระบบ</span>
             </div>
-            <MoreHorizontal size={18} />
-          </button>
+          </div>
         </div>
       </aside>
       {mobileMenu && (
@@ -691,14 +740,18 @@ export default function Home() {
             <button
               className="icon-button notification"
               aria-label="การแจ้งเตือน"
-              onClick={() => setToast("ไม่มีการแจ้งเตือนใหม่")}
+              disabled
+              title="ยังไม่มีระบบแจ้งเตือนจากเซิร์ฟเวอร์"
             >
               <Bell size={18} />
-              <i />
             </button>
             <div className="topbar-divider" />
-            <button className="top-avatar" aria-label="โปรไฟล์ผู้ใช้">
-              PK
+            <button
+              className="top-avatar"
+              aria-label="ข้อมูลโหมดการใช้งาน"
+              onClick={() => setModal("help")}
+            >
+              LS
             </button>
           </div>
         </header>
@@ -1147,10 +1200,7 @@ export default function Home() {
                 proposals={proposals}
                 company={company}
                 initialProposalId={activeProposalId}
-                onEdit={(proposal) => {
-                  setActiveProposalId(proposal.id);
-                  setModal("proposal");
-                }}
+                onEdit={editProposal}
                 onSettings={() => setView("ตั้งค่าบริษัท")}
               />
             </>
@@ -1164,8 +1214,16 @@ export default function Home() {
               />
               <CompanySettings
                 workspace={workspace}
-                onSave={(next) =>
-                  commit((current) => ({ ...current, company: next }))
+                onSave={(next, baseline) =>
+                  commit((current) => {
+                    assertUnchanged(current.company, baseline, "ข้อมูลบริษัท", [
+                      "official",
+                    ]);
+                    return {
+                      ...current,
+                      company: { ...next, official: current.company.official },
+                    };
+                  })
                 }
                 onBackup={() =>
                   download(
@@ -1174,18 +1232,34 @@ export default function Home() {
                     "application/json",
                   )
                 }
-                onImport={(next) => commit(() => next)}
+                onImport={(next, baseline) =>
+                  commit((current) => {
+                    assertUnchanged(
+                      current,
+                      baseline,
+                      "พื้นที่ทำงานก่อนนำเข้า",
+                    );
+                    return next;
+                  })
+                }
               />
             </>
           )}
           {view === "ตั้งค่าบริษัท" && (
             <OfficialProfileSettings
               value={company.official}
-              onSave={(official) =>
-                commit((current) => ({
-                  ...current,
-                  company: { ...current.company, official },
-                }))
+              onSave={(official, baseline) =>
+                commit((current) => {
+                  assertUnchanged(
+                    { official: current.company.official },
+                    { official: baseline },
+                    "ข้อมูลหน่วยงาน",
+                  );
+                  return {
+                    ...current,
+                    company: { ...current.company, official },
+                  };
+                })
               }
             />
           )}
@@ -1198,6 +1272,48 @@ export default function Home() {
         </div>
       </section>
 
+      {modal === "help" && (
+        <ModalShell title="วิธีใช้งาน SolarDesk" onClose={() => setModal(null)}>
+          <div className="help-content">
+            <p>
+              รุ่นนี้เก็บข้อมูลในเบราว์เซอร์นี้
+              ยังไม่มีระบบบัญชีผู้ใช้หรือฐานข้อมูลร่วม
+              ไม่ควรใช้เก็บข้อมูลสำคัญเพียงสำเนาเดียว
+            </p>
+            <ol>
+              <li>
+                เพิ่มลูกค้าและสร้างใบเสนอราคา ตรวจข้อมูล ราคา
+                และวันที่ก่อนบันทึก
+              </li>
+              <li>
+                ตั้งค่าบริษัทและผู้ลงนามด้วยข้อมูลของงานจริง
+                ไม่ใช้ข้อมูลในเอกสารตัวอย่างแทน
+              </li>
+              <li>
+                แนบต้นแบบส่วนตัวในเมนูเทมเพลตหรือจัดจ้าง
+                ไฟล์ไม่ถูกอัปโหลดขึ้นเซิร์ฟเวอร์
+              </li>
+              <li>
+                Word ที่สร้างเป็น draft ต้องตรวจทุกหน้าใน Microsoft Word
+                ก่อนออกเอกสาร ส่วนเอกสารจัดจ้าง 11 แบบยังเป็นแบบอ้างอิง
+              </li>
+              <li>
+                ดาวน์โหลดไฟล์สำรองจากตั้งค่าบริษัท และเก็บต้นแบบ Word แยกไว้
+                JSON ไม่รวมไฟล์ต้นแบบ
+              </li>
+              <li>
+                เมื่อย้าย URL หรือเครื่อง ต้องนำเข้า backup และแนบต้นแบบใหม่
+                การล้างข้อมูลเว็บไซต์อาจทำให้ข้อมูลในเครื่องหาย
+              </li>
+            </ol>
+            <p>
+              ถ้าพบข้อความว่าข้อมูลเปลี่ยนจากแท็บอื่น
+              ให้เก็บข้อความที่กำลังกรอกไว้แล้วเปิดฟอร์มใหม่
+              ระบบจะไม่เขียนทับข้อมูลล่าสุด
+            </p>
+          </div>
+        </ModalShell>
+      )}
       {modal === "proposal" && (
         <ModalShell
           title={activeProposal ? "แก้ไขใบเสนอราคา" : "สร้างใบเสนอราคาใหม่"}
@@ -1206,7 +1322,7 @@ export default function Home() {
           wide
         >
           <ProposalEditor
-            proposal={activeProposal}
+            proposal={proposalEditorBase}
             customers={customers}
             selectedPackage={selectedPackage}
             onSave={createProposal}
@@ -1311,7 +1427,7 @@ export default function Home() {
               <button
                 className="primary-button"
                 onClick={() => {
-                  setModal("proposal");
+                  editProposal(activeProposal);
                 }}
               >
                 แก้ไขข้อเสนอ <ArrowRight size={16} />

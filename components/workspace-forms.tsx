@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { calculateEstimate, defaultSolarDetails } from "../lib/solar";
 import { SolarFields } from "./solar-fields";
 import {
@@ -21,15 +21,15 @@ import {
   type Workspace,
 } from "../lib/workspace";
 
-type Save = (form: FormData) => void;
-function submitForm(
+type Save = (form: FormData) => void | Promise<void>;
+async function submitForm(
   event: FormEvent<HTMLFormElement>,
   save: Save,
   setError: (message: string) => void,
 ) {
   event.preventDefault();
   try {
-    save(new FormData(event.currentTarget));
+    await save(new FormData(event.currentTarget));
   } catch (error) {
     setError(
       error instanceof Error
@@ -363,14 +363,23 @@ export function CompanySettings({
   onImport,
 }: {
   workspace: Workspace;
-  onSave: (company: Company) => boolean;
+  onSave: (company: Company, baseline: Company) => Promise<boolean>;
   onBackup: () => void;
-  onImport: (workspace: Workspace) => boolean;
+  onImport: (workspace: Workspace, baseline: Workspace) => Promise<boolean>;
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [pendingImport, setPendingImport] = useState<Workspace | null>(null);
+  const [companyBase, setCompanyBase] = useState<Company | null>(null);
+  const [companyError, setCompanyError] = useState("");
+  const companyValue = companyBase || workspace.company;
+  const [pendingImport, setPendingImport] = useState<{
+    data: Workspace;
+    baseline: Workspace;
+  } | null>(null);
+  const importRequest = useRef(0);
   async function selectBackup(file: File | undefined) {
+    const request = ++importRequest.current;
+    const baseline = workspace;
     setError("");
     setPendingImport(null);
     if (!file) return;
@@ -379,9 +388,12 @@ export function CompanySettings({
       return;
     }
     try {
-      setPendingImport(parseWorkspace(await file.text()));
+      const data = parseWorkspace(await file.text());
+      if (request === importRequest.current)
+        setPendingImport({ data, baseline });
     } catch (error) {
-      setError(error instanceof Error ? error.message : "อ่านไฟล์ไม่สำเร็จ");
+      if (request === importRequest.current)
+        setError(error instanceof Error ? error.message : "อ่านไฟล์ไม่สำเร็จ");
     }
   }
   return (
@@ -394,8 +406,13 @@ export function CompanySettings({
           </div>
         </div>
         <form
-          key={JSON.stringify(workspace.company)}
-          onSubmit={(event) => {
+          key={JSON.stringify(companyValue)}
+          onChange={() => {
+            if (!companyBase) setCompanyBase(workspace.company);
+            setMessage("");
+            setCompanyError("");
+          }}
+          onSubmit={async (event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
             const company: Company = {
@@ -404,9 +421,16 @@ export function CompanySettings({
               phone: String(form.get("phone") || "").trim(),
               email: String(form.get("email") || "").trim(),
               taxId: String(form.get("taxId") || "").trim(),
-              official: workspace.company.official,
+              official: companyValue.official,
             };
-            if (onSave(company)) setMessage("บันทึกข้อมูลบริษัทแล้ว");
+            if (await onSave(company, companyValue)) {
+              setCompanyBase(null);
+              setMessage("บันทึกข้อมูลบริษัทแล้ว");
+              setCompanyError("");
+            } else
+              setCompanyError(
+                "บันทึกไม่สำเร็จ ข้อมูลล่าสุดอาจเปลี่ยนจากแท็บอื่น กรุณาสำรองข้อความที่กรอกก่อนเปิดหน้าใหม่",
+              );
           }}
           className="editor-form settings-form"
         >
@@ -417,7 +441,7 @@ export function CompanySettings({
                 name="name"
                 required
                 maxLength={200}
-                defaultValue={workspace.company.name}
+                defaultValue={companyValue.name}
               />
             </label>
             <label className="field field-full">
@@ -426,7 +450,7 @@ export function CompanySettings({
                 name="address"
                 rows={3}
                 maxLength={1000}
-                defaultValue={workspace.company.address}
+                defaultValue={companyValue.address}
               />
             </label>
             <label className="field">
@@ -435,7 +459,7 @@ export function CompanySettings({
                 name="phone"
                 type="tel"
                 maxLength={30}
-                defaultValue={workspace.company.phone}
+                defaultValue={companyValue.phone}
               />
             </label>
             <label className="field">
@@ -444,7 +468,7 @@ export function CompanySettings({
                 name="email"
                 type="email"
                 maxLength={200}
-                defaultValue={workspace.company.email}
+                defaultValue={companyValue.email}
               />
             </label>
             <label className="field field-full">
@@ -454,11 +478,16 @@ export function CompanySettings({
                 inputMode="numeric"
                 pattern="[0-9]{13}|"
                 maxLength={13}
-                defaultValue={workspace.company.taxId}
+                defaultValue={companyValue.taxId}
                 placeholder="ตัวเลข 13 หลัก (ถ้ามี)"
               />
             </label>
           </div>
+          {companyError && (
+            <p role="alert" className="form-error">
+              {companyError}
+            </p>
+          )}
           {message && (
             <p role="status" className="form-success">
               <Check size={15} />
@@ -514,10 +543,10 @@ export function CompanySettings({
         {pendingImport && (
           <div className="import-preview">
             <Upload size={18} />
-            <strong>{pendingImport.company.name}</strong>
+            <strong>{pendingImport.data.company.name}</strong>
             <span>
-              {pendingImport.proposals.length} ใบเสนอราคา ·{" "}
-              {pendingImport.customers.length} ลูกค้า
+              {pendingImport.data.proposals.length} ใบเสนอราคา ·{" "}
+              {pendingImport.data.customers.length} ลูกค้า
             </span>
             <p>
               การนำเข้าจะแทนข้อมูลในเบราว์เซอร์นี้
@@ -532,11 +561,18 @@ export function CompanySettings({
               </button>
               <button
                 className="primary-button"
-                onClick={() => {
-                  if (onImport(pendingImport)) {
+                onClick={async () => {
+                  if (
+                    await onImport(pendingImport.data, pendingImport.baseline)
+                  ) {
+                    setCompanyBase(null);
                     setPendingImport(null);
                     setMessage("นำเข้าข้อมูลสำเร็จ");
-                  }
+                    setError("");
+                  } else
+                    setError(
+                      "ข้อมูลเปลี่ยนระหว่างตรวจไฟล์สำรอง จึงยังไม่แทนข้อมูลล่าสุด กรุณาเลือกไฟล์และตรวจทานใหม่",
+                    );
                 }}
               >
                 ยืนยันนำเข้า <ArrowRight size={15} />

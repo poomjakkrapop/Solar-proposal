@@ -2351,7 +2351,30 @@ select:focus-visible {
 }
 .procurement-workspace {
   display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
+}
+.procurement-workspace > *,
+.procurement-context > *,
+.procurement-document-card,
+.procurement-editor .field {
+  min-width: 0;
+}
+.procurement-workspace .document-selection .field {
+  flex-basis: 260px;
+  min-width: 0;
+}
+.procurement-workspace select,
+.procurement-workspace input,
+.procurement-workspace textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+.procurement-workspace .document-review-notice,
+.procurement-context h2,
+.procurement-document-heading {
+  overflow-wrap: anywhere;
 }
 .procurement-workspace .document-selection {
   margin: 0;
@@ -2363,7 +2386,7 @@ select:focus-visible {
 }
 .procurement-context {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
   padding: 22px;
   margin-bottom: 18px;
@@ -2422,7 +2445,7 @@ select:focus-visible {
 }
 .procurement-stage-index {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin: 24px 0;
 }

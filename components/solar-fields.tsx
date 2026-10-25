@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Calculator, ChevronDown, FileText, Save, Sun } from "lucide-react";
 import {
   calculateEstimate,
@@ -502,16 +502,30 @@ export function OfficialProfileSettings({
   onSave,
 }: {
   value?: OfficialProfile;
-  onSave: (value: OfficialProfile) => boolean;
+  onSave: (
+    value: OfficialProfile,
+    baseline: OfficialProfile | undefined,
+  ) => Promise<boolean>;
 }) {
-  const [profile, setProfile] = useState({
-    ...defaultOfficialProfile,
-    ...value,
-  });
+  const [draft, setDraft] = useState<{
+    profile: OfficialProfile;
+    baseline: OfficialProfile | undefined;
+  } | null>(null);
+  const profile = draft?.profile || { ...defaultOfficialProfile, ...value };
   const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    setProfile({ ...defaultOfficialProfile, ...value });
-  }, [value]);
+  function updateProfile<K extends keyof OfficialProfile>(
+    key: K,
+    next: OfficialProfile[K],
+  ) {
+    setSaved(false);
+    setDraft((current) => ({
+      baseline: current ? current.baseline : value,
+      profile: {
+        ...(current?.profile || { ...defaultOfficialProfile, ...value }),
+        [key]: next,
+      },
+    }));
+  }
   return (
     <section className="panel official-settings">
       <div className="panel-head">
@@ -522,9 +536,15 @@ export function OfficialProfileSettings({
       </div>
       <form
         className="editor-form"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
-          if (isOfficialProfile(profile) && onSave(profile)) setSaved(true);
+          if (
+            isOfficialProfile(profile) &&
+            (await onSave(profile, draft ? draft.baseline : value))
+          ) {
+            setSaved(true);
+            setDraft(null);
+          }
         }}
       >
         {officialGroups.map((group, index) => (
@@ -544,9 +564,7 @@ export function OfficialProfileSettings({
                     key={key}
                     label={label}
                     value={profile.approvalLimit}
-                    onChange={(value) =>
-                      setProfile({ ...profile, approvalLimit: value })
-                    }
+                    onChange={(value) => updateProfile("approvalLimit", value)}
                     max={1e12}
                     step="0.01"
                   />
@@ -557,8 +575,7 @@ export function OfficialProfileSettings({
                       maxLength={500}
                       value={profile[key]}
                       onChange={(event) => {
-                        setSaved(false);
-                        setProfile({ ...profile, [key]: event.target.value });
+                        updateProfile(key, event.target.value);
                       }}
                     />
                   </label>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { stagePreview } from "../lib/preview-task";
 
 export function WordPreview({ buffer }: { buffer: ArrayBuffer }) {
   const target = useRef<HTMLDivElement>(null);
@@ -18,20 +19,32 @@ export function WordPreview({ buffer }: { buffer: ArrayBuffer }) {
         setError("");
         target.current.replaceChildren();
         styles.current.replaceChildren();
-        await renderAsync(buffer.slice(0), target.current, styles.current, {
-          className: "word-document",
-          inWrapper: true,
-          ignoreLastRenderedPageBreak: false,
-          renderAltChunks: false,
-          renderComments: false,
-          renderChanges: false,
-          useBase64URL: true,
-          experimental: true,
-        });
-        if (active)
-          setPages(
-            target.current.querySelectorAll("section.word-document").length,
-          );
+        const stagedBody = document.createElement("div");
+        const stagedStyles = document.createElement("div");
+        await stagePreview(
+          async () => {
+            await renderAsync(buffer.slice(0), stagedBody, stagedStyles, {
+              className: "word-document",
+              inWrapper: true,
+              ignoreLastRenderedPageBreak: false,
+              renderAltChunks: false,
+              renderComments: false,
+              renderChanges: false,
+              useBase64URL: true,
+              experimental: true,
+            });
+            return { body: stagedBody, styles: stagedStyles };
+          },
+          () => active,
+          (result) => {
+            if (!target.current || !styles.current) return;
+            styles.current.replaceChildren(...result.styles.childNodes);
+            target.current.replaceChildren(...result.body.childNodes);
+            setPages(
+              target.current.querySelectorAll("section.word-document").length,
+            );
+          },
+        );
       } catch (error) {
         if (active)
           setError(
