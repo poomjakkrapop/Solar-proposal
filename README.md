@@ -1,8 +1,8 @@
 # SolarDesk — Solar Proposal Workspace (V2 prototype)
 
-A fresh, isolated, browser-local implementation for the Solar Proposal project. This repository contains the reviewed V2 application, not a complete recovery of the legacy system. The application does not connect to the existing production database. Deployment status and release limitations are recorded in [docs/IMPLEMENTATION-STATUS.md](docs/IMPLEMENTATION-STATUS.md).
+A V2 implementation for the Solar Proposal project with preserved browser-local mode and an optional authenticated shared-workspace backend. This repository is not a complete recovery of the legacy Solar system. Production cutover remains on hold. See [shared-workspace setup/status](docs/SHARED-WORKSPACE.md) and [implementation history](docs/IMPLEMENTATION-STATUS.md).
 
-Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** Isolated Supabase provisioning is waiting for free project capacity that the user will provide; no existing project was paused, deleted or reused.
+Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** The user subsequently authorized isolated V2 tables in an existing Supabase project and reuse of its existing Auth accounts. The additive schema has been applied; Preview secret configuration and live Auth/multi-device tests remain pending. No legacy application table or Auth setting was changed.
 
 ## Current scope
 
@@ -16,7 +16,8 @@ Current audit and release decision (2026-10-25): [Thai readiness report](docs/RE
 - Export filtered proposals as CSV or the entire workspace as a JSON backup. Import validates records and previews counts before replacement. CSV cells protect against spreadsheet formula injection.
 - Data is stored locally in one versioned snapshot. Legacy v1 browser data is read without deletion, writes are atomic across customer/proposal updates, and corrupt or unsupported data is never silently reset. Storage changes in other tabs are synchronized.
 - Cooperating tabs serialize writes with Web Locks and reject stale editor/import baselines while retaining drafts. Use a current browser on HTTPS (or localhost); without Web Locks, saving is blocked while reading/export remain available. Reload old tabs to the same version. This does not provide multi-device transactions or server authorization.
-- No authentication, shared database, server-generated PDF/DOCX, remote template uploads, or production integrations are enabled yet. This browser-local prototype is not suitable for sensitive production records or multi-user access.
+- Shared mode adds server-verified sign-in, role/membership checks, RLS-protected reads, transaction/revision-protected writes, invitations and audit events. It remains disabled until Preview configuration and live checks pass. Registration, recovery and password changes are absent from SolarDesk to preserve the shared Auth application's behavior. Local mode retains its original storage and limitations.
+- Server-generated final PDF/DOCX, remote template uploads and legacy production integration remain incomplete. This version is not approved for sensitive production use.
 
 ## Official form workflow
 
@@ -58,6 +59,7 @@ Open `http://localhost:3000`.
 npm test
 npm run lint
 npm run build
+npm run test:http
 ```
 
 The data-integrity tests require Node.js 22.18+ (Node.js 24 is used locally). Tests cover backup round trips, legacy migration, corrupted/versioned data, ID collisions, customer renames, numeric validation, CSV injection, sample estimate arithmetic, Thai baht text and document slot coverage. Private reference audits are intentionally outside this app directory.

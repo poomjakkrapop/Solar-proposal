@@ -3037,3 +3037,96 @@ select:focus-visible {
     box-shadow: none;
   }
 }
+/* Shared-workspace controls sit outside the existing local workspace layout. */
+.auth-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f7f8fa;
+}
+.auth-card {
+  width: min(100%, 520px);
+  padding: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: white;
+}
+.auth-card h1 {
+  font-size: 26px;
+  margin: 0 0 12px;
+}
+.auth-card p {
+  line-height: 1.7;
+  color: #475569;
+}
+.auth-form {
+  display: grid;
+  gap: 16px;
+  margin: 20px 0;
+}
+.auth-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.cloud-toolbar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+.cloud-toolbar strong {
+  margin-right: auto;
+  overflow-wrap: anywhere;
+}
+.cloud-toolbar label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cloud-toolbar select {
+  max-width: min(100%, 320px);
+  padding: 8px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+}
+.cloud-error {
+  padding: 16px 24px;
+  background: #fff7e8;
+  color: #854d0e;
+  overflow-wrap: anywhere;
+}
+.cloud-team,
+.cloud-join {
+  padding: 24px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+.cloud-team {
+  max-width: 100%;
+}
+.cloud-team .auth-form,
+.cloud-join .auth-form {
+  max-width: 560px;
+}
+.cloud-member {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+.cloud-member code {
+  overflow-wrap: anywhere;
+}

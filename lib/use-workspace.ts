@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { withWorkspaceLock } from "./workspace-lock";
+import { useCloudWorkspace, type CloudBinding } from "./use-cloud-workspace";
 import {
   loadWorkspace,
   parseWorkspace,
@@ -10,7 +11,8 @@ import {
   type Workspace,
 } from "./workspace";
 
-export function useWorkspace(initial: Workspace) {
+export function useWorkspace(initial: Workspace, cloud?: CloudBinding) {
+  const remote = useCloudWorkspace(initial, cloud);
   const [workspace, setWorkspace] = useState(initial);
   const [storageError, setStorageError] = useState("");
   const [ready, setReady] = useState(false);
@@ -23,6 +25,7 @@ export function useWorkspace(initial: Workspace) {
   const initialRef = useRef(initial);
 
   useEffect(() => {
+    if (cloud) return;
     try {
       const loaded = loadWorkspace(localStorage, initialRef.current);
       snapshot.current = loaded;
@@ -58,7 +61,7 @@ export function useWorkspace(initial: Workspace) {
     }
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, []);
+  }, [cloud]);
 
   const commit = useCallback(
     async (update: (current: Workspace) => Workspace): Promise<boolean> => {
@@ -100,5 +103,5 @@ export function useWorkspace(initial: Workspace) {
     },
     [],
   );
-  return { workspace, commit, ready, saving, storageError };
+  return cloud ? remote : { workspace, commit, ready, saving, storageError };
 }

@@ -361,11 +361,15 @@ export function CompanySettings({
   onSave,
   onBackup,
   onImport,
+  shared = false,
+  readOnly = false,
 }: {
   workspace: Workspace;
   onSave: (company: Company, baseline: Company) => Promise<boolean>;
   onBackup: () => void;
   onImport: (workspace: Workspace, baseline: Workspace) => Promise<boolean>;
+  shared?: boolean;
+  readOnly?: boolean;
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -439,6 +443,7 @@ export function CompanySettings({
               ชื่อบริษัท
               <input
                 name="name"
+                readOnly={readOnly}
                 required
                 maxLength={200}
                 defaultValue={companyValue.name}
@@ -448,6 +453,7 @@ export function CompanySettings({
               ที่อยู่
               <textarea
                 name="address"
+                readOnly={readOnly}
                 rows={3}
                 maxLength={1000}
                 defaultValue={companyValue.address}
@@ -457,6 +463,7 @@ export function CompanySettings({
               เบอร์โทรศัพท์
               <input
                 name="phone"
+                readOnly={readOnly}
                 type="tel"
                 maxLength={30}
                 defaultValue={companyValue.phone}
@@ -466,6 +473,7 @@ export function CompanySettings({
               อีเมล
               <input
                 name="email"
+                readOnly={readOnly}
                 type="email"
                 maxLength={200}
                 defaultValue={companyValue.email}
@@ -475,6 +483,7 @@ export function CompanySettings({
               เลขประจำตัวผู้เสียภาษี
               <input
                 name="taxId"
+                readOnly={readOnly}
                 inputMode="numeric"
                 pattern="[0-9]{13}|"
                 maxLength={13}
@@ -495,7 +504,7 @@ export function CompanySettings({
             </p>
           )}
           <div className="modal-actions">
-            <button className="primary-button">
+            <button className="primary-button" disabled={readOnly}>
               <Save size={16} />
               บันทึกข้อมูลบริษัท
             </button>
@@ -506,7 +515,11 @@ export function CompanySettings({
         <div className="panel-head">
           <div>
             <h2>สำรองและนำเข้าข้อมูล</h2>
-            <p>ข้อมูลการทดลองที่บันทึกในเบราว์เซอร์นี้</p>
+            <p>
+              {shared
+                ? "ข้อมูลกลางของพื้นที่ทำงานนี้"
+                : "ข้อมูลการทดลองที่บันทึกในเบราว์เซอร์นี้"}
+            </p>
           </div>
         </div>
         <div className="backup-summary">
@@ -528,6 +541,7 @@ export function CompanySettings({
           นำเข้าไฟล์สำรอง JSON
           <input
             type="file"
+            disabled={readOnly}
             accept="application/json,.json"
             onChange={(event) => {
               void selectBackup(event.target.files?.[0]);
@@ -549,7 +563,9 @@ export function CompanySettings({
               {pendingImport.data.customers.length} ลูกค้า
             </span>
             <p>
-              การนำเข้าจะแทนข้อมูลในเบราว์เซอร์นี้
+              {shared
+                ? "การยืนยันนำเข้าจะส่งข้อมูลใน JSON ขึ้นเซิร์ฟเวอร์และแทนข้อมูลกลางของพื้นที่นี้ สมาชิกที่มีสิทธิ์จะเห็นข้อมูลใหม่"
+                : "การนำเข้าจะแทนข้อมูลในเบราว์เซอร์นี้"}
               ควรดาวน์โหลดไฟล์สำรองปัจจุบันเก็บไว้ก่อน
             </p>
             <div className="button-row">
@@ -561,6 +577,7 @@ export function CompanySettings({
               </button>
               <button
                 className="primary-button"
+                disabled={readOnly}
                 onClick={async () => {
                   if (
                     await onImport(pendingImport.data, pendingImport.baseline)

@@ -500,8 +500,10 @@ const officialGroups: {
 export function OfficialProfileSettings({
   value,
   onSave,
+  readOnly = false,
 }: {
   value?: OfficialProfile;
+  readOnly?: boolean;
   onSave: (
     value: OfficialProfile,
     baseline: OfficialProfile | undefined,
@@ -590,7 +592,7 @@ export function OfficialProfileSettings({
           </p>
         )}
         <div className="modal-actions">
-          <button className="primary-button">
+          <button className="primary-button" disabled={readOnly}>
             <Save size={16} />
             บันทึกข้อมูลหน่วยงาน
           </button>

@@ -2,6 +2,12 @@
 
 Implementation verified 2026-10-21; deployment checks updated 2026-10-25. No completed production cutover: the original live application remains active.
 
+## Shared workspace follow-up — 2026-10-25
+
+The user authorized an existing Supabase project with isolated `sd_v2_*` tables and shared existing Auth accounts. Four RLS-enabled tables and service-only mutation RPCs were added without altering legacy tables, policies or Auth triggers/settings; the checked legacy schema fingerprint is unchanged. Server identity verification, role checks, optimistic revisions, invitation hashes, audit events, private cache headers and shared-mode UI have been implemented. Signup/recovery/password updates are excluded, and logout is local to the current session. See [SHARED-WORKSPACE.md](SHARED-WORKSPACE.md).
+
+Preview-only configuration is prepared with cloud mode disabled until the server secret is set directly and real-account/multi-device checks pass. No production env/alias or deployment-hold change has been made. Existing audit/source/native-document/migration release blockers remain; the historical “no Auth/shared DB” statements below describe earlier versions.
+
 ## Readiness audit update — 2026-10-25
 
 The current findings and release decision are in [READINESS-AUDIT.md](READINESS-AUDIT.md). Production remains **No-Go**. This update supersedes historical test/advisory/schema counts below: 36 tests pass; full dependency audit reports zero advisories; the complete 8-model legacy Prisma schema has been recovered privately, while full legacy source/security/parity review remains incomplete. Build first-load JavaScript is approximately 137 kB.
