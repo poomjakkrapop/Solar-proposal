@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SolarWorkspace from "./solar-workspace";
 import {
   parseCloudWorkspace,
+  type CloudRole,
   type CloudWorkspace,
 } from "../lib/cloud-contract";
 
@@ -25,6 +26,15 @@ export function CloudShell({ email }: { email: string }) {
   const [team, setTeam] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [token, setToken] = useState("");
+  const [access, setAccess] = useState<{
+    id: string;
+    role: CloudRole | null;
+  }>();
+  const onAccessChange = useCallback((id: string, role: CloudRole | null) => {
+    setAccess((previous) =>
+      previous?.id === id && previous.role === role ? previous : { id, role },
+    );
+  }, []);
   const loadTicket = useRef(0);
   const load = useCallback(async (id?: string) => {
     const ticket = ++loadTicket.current;
@@ -36,12 +46,14 @@ export function CloudShell({ email }: { email: string }) {
     if (!response.ok)
       throw new Error(result.error || "อ่านพื้นที่ทำงานไม่สำเร็จ");
     if (ticket !== loadTicket.current) return;
+    const next = result.current ? parseCloudWorkspace(result.current) : null;
     setData({
-      current: result.current ? parseCloudWorkspace(result.current) : null,
+      current: next,
       workspaces: result.workspaces,
       audit: result.audit || [],
     });
-  }, []);
+    if (next) onAccessChange(next.id, next.role);
+  }, [onAccessChange]);
   useEffect(() => {
     let active = true;
     void load().catch((error) => {
@@ -62,11 +74,12 @@ export function CloudShell({ email }: { email: string }) {
         ? {
             id: current.id,
             revision: current.revision,
-            role: current.role,
+            role: access?.id === current.id ? access.role : current.role,
             email,
+            onAccessChange,
           }
         : undefined,
-    [current, email],
+    [current, email, access, onAccessChange],
   );
   async function action(body: object) {
     setBusy(true);
@@ -262,7 +275,13 @@ export function CloudShell({ email }: { email: string }) {
               สิทธิ์อ่านเท่านั้น — บันทึกหรือเปลี่ยนสถานะไม่ได้
             </p>
           )}
-          {team && (
+          {cloud.role === null && (
+            <p role="alert" className="cloud-error">
+              ยังยืนยันสิทธิ์พื้นที่นี้ไม่ได้ จึงหยุดการบันทึกไว้
+              ร่างที่กำลังกรอกยังอยู่ กรุณาเข้าสู่ระบบในอีกแท็บหรือติดต่อเจ้าของพื้นที่
+            </p>
+          )}
+          {team && cloud.role === "owner" && (
             <section className="cloud-team">
               <h2>สมาชิกและประวัติพื้นที่ทำงาน</h2>
               <p>

@@ -1,6 +1,6 @@
 # SolarDesk: โหมดข้อมูลกลาง
 
-อัปเดต 25 ตุลาคม 2026 — **ยังไม่อนุมัติ production cutover** เปิดข้อมูลกลางเฉพาะ Preview แล้ว ผู้ใช้รายงานว่าล็อกอินสำเร็จ และ metadata ยืนยันการสร้าง workspace/สมาชิก/audit การทดสอบบันทึกข้อมูลธุรกิจ โหลดกลับ และสิทธิ์หลายบัญชียังต้องทำ
+อัปเดต 25 ตุลาคม 2026 — **ยังไม่อนุมัติ production cutover** เปิดข้อมูลกลางเฉพาะ Preview แล้ว การล็อกอิน เพิ่มลูกค้าทดสอบและรีเฟรชผ่านโดยผู้ใช้ พร้อมหลักฐานจากฐานข้อมูลที่ revision 2 การทดสอบสิทธิ์หลายบัญชีบนระบบจริงยังค้าง เพราะขณะนี้มีบัญชีเดิมพร้อมทดสอบเพียงบัญชีเดียว
 
 อัปเดตการตั้งค่า: ผู้ใช้เพิ่ม server Secret แล้ว ตรวจเฉพาะ metadata ว่าเป็น Sensitive ใน Preview branch ที่อนุมัติ จากนั้นเปิด `SOLARDESK_CLOUD_ENABLED=true` เฉพาะ branch นี้เพื่อเริ่ม live verification ไม่มีการอ่านค่าลับกลับมา การมี configuration ครบยังไม่ใช่หลักฐานว่าการล็อกอินและเขียนฐานข้อมูลผ่านแล้ว
 
@@ -59,11 +59,21 @@ Workspace รุ่นแรกเก็บข้อมูลเป็น JSON s
 - Git commit `e309b1a0250f211b19bcb2f509e5c32524004136`: [CI ผ่าน](https://github.com/poomjakkrapop/Solar-proposal/actions/runs/40177906638), Preview `dpl_9zJTA9FxvK6Jx1F8ufupLDaG8tjH` READY; [ลิงก์รุ่นนั้น](https://solar-proposal-etz10s790-emolaza.vercel.app) และ [branch alias สำหรับทดสอบ](https://solar-proposal-git-fix-readiness-audit-emolaza.vercel.app)
 - Hosted HTTP checks 8 รายการผ่าน: root redirect, login พร้อม private/no-store, anonymous workspace 401, signup 403, cross-origin mutation 403, JSONP 415, JSON เสีย 400 และ auth body เกินขนาด 413 ไม่มีการสร้าง Auth users
 - ผู้ใช้ยืนยันว่าล็อกอินสำเร็จ/เห็นหน้าเริ่มพื้นที่ทำงาน ตรวจฐานข้อมูลแบบอ่านเฉพาะ metadata พบ workspace 1 แห่ง, member 1 คน, revision 1, audit 1 รายการ, customer/proposal 0 รายการ ตรงกับการเริ่มพื้นที่ว่างโดยไม่อัปโหลด demo/local records
-- Browser session ที่ agent ควบคุมยัง redirect ไป login จึงยังไม่รับรองว่า agent ทดสอบ UI ที่ล็อกอินครบวงจร ผล save/reload และหลายบัญชีต้องมีหลักฐานเพิ่ม โดยไม่อ่าน credentials หรือ impersonate ผู้ใช้
+- ผู้ใช้เพิ่มลูกค้าชื่อ synthetic ที่ตกลงกัน บันทึกและรีเฟรชแล้วยืนยันว่าชื่อยังอยู่ Query แบบอ่านเฉพาะ count/revision พบชื่อนั้น 1 รายการ, workspace revision 2, audit 2 รายการและ latest audit revision 2 เป็นผลผ่านแบบ owner-assisted พร้อม database corroboration ไม่ใช่การดู UI ที่ล็อกอินโดย agent
+- Commit `609b2e3e26af5022c48887b06ab1576ff2943456` ผ่าน [CI](https://github.com/poomjakkrapop/Solar-proposal/actions/runs/40178951335); [Preview](https://solar-proposal-86yneevmt-emolaza.vercel.app) `dpl_D2a7emxdT47PZPBza9HKV37VuV9n` READY, ตรวจ functions อยู่ `hnd1` และ hosted checks 8 รายการผ่าน โดเมน production ยังคงชี้ `dpl_GFATKwyGNRXNYaSSn2HQF5VhH7WT`
+- Browser session ที่ agent ควบคุมยัง redirect ไป login ไม่อ่าน credentials หรือ impersonate ผู้ใช้ ผู้ใช้ยืนยันว่ามีเพียงบัญชีเดียว จึงยังตรวจ viewer/editor/invitation/revocation จริงหลายบัญชีไม่ได้ และไม่ได้สร้าง Auth user เพิ่มใน shared project เพื่อทดสอบ
+
+## แก้การแสดงสิทธิ์และคำตอบเครือข่ายล่าช้า
+
+พบว่าฐานข้อมูล/เซิร์ฟเวอร์ตรวจ role ที่เปลี่ยนแล้ว แต่ปุ่มและป้าย role ในหน้าเปิดค้างอ้างค่าตอนเปิดหน้า แก้ให้ background/focus refresh แจ้ง role กลับถึง UI แม้ document revision ไม่เพิ่ม และล็อกการบันทึกเมื่อยืนยันสิทธิ์ไม่ได้ โดยไม่ remount workspace หรือทิ้งร่างที่กรอก
+
+คำขออ่านที่ล้าสมัย/ยกเลิกจะไม่เปลี่ยน role/snapshot หรือแสดง network error ทับผลใหม่ การเริ่ม save ทำให้ read เก่าหมดสิทธิ์อัปเดต state และเมื่อ refresh สำเร็จจะล้างเฉพาะ read error แยกจาก save/conflict error Regression 4 กรณีครอบ late editor หลัง viewer ที่ revision เท่ากัน, late read/error หลัง save, การปฏิเสธสิทธิ์/ยกเลิก และ response จาก workspace ผิดชุด ยังต้องทำ hosted multi-account UI acceptance เมื่อมีบัญชีเดิมที่สอง
+
+ทดสอบ UI เพิ่มใน loopback harness ส่วนตัวที่ใช้ components/hooks จริงของ branch นี้ กับ API และข้อมูล synthetic ในหน่วยความจำ ไม่มี Auth users/keys หรือการเชื่อมฐานข้อมูลจริง: editor → viewer ทำให้ role เปลี่ยนแม้ revision เท่าเดิม ปุ่ม save ในฟอร์มลูกค้าปิดพร้อมข้อความให้คัดลอกร่าง โดยชื่อ/ผู้ติดต่อ/พื้นที่ที่กรอกไม่หาย; revoked ทำให้ UI ระบุว่ายืนยันสิทธิ์ไม่ได้; กลับเป็น editor แล้วปุ่มเปิดและ read error หาย บันทึกร่างเดิมและ reload พบข้อมูลที่บันทึก จากนั้นเปิดฟอร์มลูกค้าเดียวกันสองแท็บ แท็บแรกบันทึกได้ แท็บเก่าถูกปฏิเสธพร้อมร่างเดิมและข้อมูลล่าสุดยังเป็นของแท็บแรก ผลนี้ตรวจ React/UI กับ contract จำลอง ไม่แทน hosted Supabase multi-account หรือ cross-device acceptance ตัว harness/ภาพหลักฐานอยู่ภายนอก repository และไม่ถูก deploy
 
 ## การลดเวลารอ
 
-ตั้ง `regions:["hnd1"]` ใน `vercel.json` ให้รุ่นใหม่ประมวลผลที่โตเกียวใกล้ฐานข้อมูล `ap-northeast-1` แทนค่าเดิมของ Preview ที่ `iad1` และอ่าน membership/workspace list พร้อมกัน จากนั้นอ่าน snapshot/audit พร้อมกันภายใต้ RLS เดิม การยืนยัน identity/membership และ transaction เขียนยังตามลำดับเดิม ไม่มี shared cache ของข้อมูลผู้ใช้ ต้องตรวจ region ของ deployment ใหม่หลัง build; ยังไม่มี benchmark ของ authenticated flow
+ตั้ง `regions:["hnd1"]` ใน `vercel.json` ให้รุ่นใหม่ประมวลผลที่โตเกียวใกล้ฐานข้อมูล `ap-northeast-1` แทนค่าเดิมของ Preview ที่ `iad1` และอ่าน membership/workspace list พร้อมกัน จากนั้นอ่าน snapshot/audit พร้อมกันภายใต้ RLS เดิม การยืนยัน identity/membership และ transaction เขียนยังตามลำดับเดิม ไม่มี shared cache ของข้อมูลผู้ใช้ ยืนยัน region ของ deployment `609b2e3` แล้ว; ยังไม่มี benchmark ของ authenticated flow
 
 อ้างอิง: [Vercel function regions](https://vercel.com/docs/functions/configuring-functions/region), [region codes](https://vercel.com/docs/regions)
 
@@ -78,7 +88,7 @@ Workspace รุ่นแรกเก็บข้อมูลเป็น JSON s
 
 Automated tests ใช้ Postgres/WASM (PGlite) จริงในหน่วยความจำ: RLS isolation, deny direct writes/RPC, stale/null revisions, transaction rollback, invite binding/single-use, viewer denial และการเปลี่ยน/ระงับสมาชิก ผลนี้ไม่ทดแทน hosted Auth และ end-to-end หลายเครื่อง
 
-ผลรอบล่าสุด: `npm test` ผ่าน 47 รายการ และ `npm run test:http` ผ่าน 6 รายการบน optimized Next server แยกใน loopback CI รัน HTTP checks หลัง build ด้วย พบและแก้ origin check ที่เคยใช้ hostname ภายในของ Next แทนปลายทางของ browser; regression ครอบ HTTPS proxy และยังปฏิเสธ origin/protocol ที่ต่างกัน ตรวจ live Supabase ด้วย publishable key พบ anonymous SELECT และ mutation RPC ถูกปฏิเสธทั้งคู่ (401/42501) โดยไม่สร้างผู้ใช้หรือแก้ข้อมูลเดิม Full npm audit ได้ 0 advisories
+ผลรอบล่าสุด: `npm test` ผ่าน 51 รายการ รวม regression การอ่านล่าช้า 4 รายการ และ `npm run test:http` ผ่าน 6 รายการบน optimized Next server รุ่นสุดท้ายแยกใน loopback รวม 57 รายการ; lint และ build ผ่าน CI รัน HTTP checks หลัง build ด้วย พบและแก้ origin check ที่เคยใช้ hostname ภายในของ Next แทนปลายทางของ browser; regression ครอบ HTTPS proxy และยังปฏิเสธ origin/protocol ที่ต่างกัน ตรวจ live Supabase ด้วย publishable key พบ anonymous SELECT และ mutation RPC ถูกปฏิเสธทั้งคู่ (401/42501) โดยไม่สร้างผู้ใช้หรือแก้ข้อมูลเดิม Full npm audit รอบล่าสุดได้ 0 advisories
 
 ## Rollback และข้อจำกัด
 

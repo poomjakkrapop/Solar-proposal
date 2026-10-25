@@ -345,7 +345,7 @@ export default function SolarWorkspace({
     cloud,
   );
   const { proposals, customers, company } = workspace;
-  const readOnly = cloud?.role === "viewer";
+  const readOnly = !!cloud && cloud.role !== "owner" && cloud.role !== "editor";
   const activeProposal =
     proposals.find((proposal) => proposal.id === activeProposalId) || null;
   const [query, setQuery] = useState("");
@@ -744,7 +744,9 @@ export default function SolarWorkspace({
             </div>
             <div className="profile-info">
               <strong>{cloud ? cloud.email : "โหมดในเครื่อง"}</strong>
-              <span>{cloud ? cloud.role : "ยังไม่ได้เข้าสู่ระบบ"}</span>
+              <span>
+                {cloud ? cloud.role || "ยังยืนยันสิทธิ์ไม่ได้" : "ยังไม่ได้เข้าสู่ระบบ"}
+              </span>
             </div>
           </div>
         </div>
@@ -800,7 +802,7 @@ export default function SolarWorkspace({
               {cloud ? (
                 <>
                   <strong>ข้อมูลกลาง</strong> — บันทึกผ่านเซิร์ฟเวอร์ · สิทธิ์{" "}
-                  {cloud.role} · ต้นแบบ Word ยังเก็บในเครื่องนี้
+                  {cloud.role || "ยังยืนยันสิทธิ์ไม่ได้"} · ต้นแบบ Word ยังเก็บในเครื่องนี้
                 </>
               ) : (
                 <>
@@ -1374,6 +1376,7 @@ export default function SolarWorkspace({
           wide
         >
           <ProposalEditor
+            readOnly={readOnly}
             proposal={proposalEditorBase}
             customers={customers}
             selectedPackage={selectedPackage}
@@ -1389,6 +1392,7 @@ export default function SolarWorkspace({
           onClose={() => setModal(null)}
         >
           <CustomerEditor
+            readOnly={readOnly}
             customer={editingCustomer}
             onSave={createCustomer}
             onCancel={() => setModal(null)}

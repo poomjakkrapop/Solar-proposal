@@ -2,50 +2,56 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MAX_CLOUD_BYTES,
-  parseCloudWorkspace,
+  CloudError,
   type CloudRole,
 } from "./cloud-contract";
+import { readCloudWorkspace } from "./cloud-refresh";
 import { validateWorkspace, type Workspace } from "./workspace";
 
 export type CloudBinding = {
   id: string;
   revision: number;
-  role: CloudRole;
+  role: CloudRole | null;
   email: string;
+  onAccessChange: (id: string, role: CloudRole | null) => void;
 };
 export function useCloudWorkspace(initial: Workspace, cloud?: CloudBinding) {
   const [workspace, setWorkspace] = useState(initial);
   const [storageError, setStorageError] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const [saving, setSaving] = useState(false);
   const snapshot = useRef(initial);
   const revision = useRef(cloud?.revision || 0);
-  const canWrite = useRef(cloud?.role !== "viewer");
+  const canWrite = useRef(
+    cloud?.role === "owner" || cloud?.role === "editor",
+  );
   const pending = useRef(false);
   const blocked = useRef(false);
+  const refreshTicket = useRef(0);
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       if (!cloud) return;
-      const response = await fetch(
-        `/api/workspace?id=${encodeURIComponent(cloud.id)}`,
-        {
-          cache: "no-store",
-          signal: signal
-            ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
-            : AbortSignal.timeout(15000),
-        },
-      );
-      if (!response.ok) {
-        if ([401, 403, 404].includes(response.status)) blocked.current = true;
-        throw new Error(
-          "อ่านข้อมูลกลางไม่สำเร็จ หรือสิทธิ์เปลี่ยนไป ร่างที่กำลังแก้ยังอยู่ กรุณาเข้าสู่ระบบในอีกแท็บหรือติดต่อเจ้าของพื้นที่",
+      const ticket = ++refreshTicket.current;
+      let next;
+      try {
+        next = await readCloudWorkspace(
+          cloud.id,
+          () => ticket === refreshTicket.current,
+          signal,
         );
+      } catch (error) {
+        if (error instanceof CloudError && [401, 403, 404].includes(error.status)) {
+          blocked.current = true;
+          canWrite.current = false;
+          cloud.onAccessChange(cloud.id, null);
+        }
+        throw error;
       }
-      const data = await response.json();
-      const next = parseCloudWorkspace(data.current);
-      if (next.id !== cloud.id)
-        throw new Error("เซิร์ฟเวอร์ส่งพื้นที่ทำงานไม่ตรงกัน");
+      if (!next) return;
       canWrite.current = next.role !== "viewer";
       blocked.current = false;
+      cloud.onAccessChange(cloud.id, next.role);
+      setRefreshError("");
       if (next.revision > revision.current) {
         revision.current = next.revision;
         snapshot.current = next.document;
@@ -61,7 +67,7 @@ export function useCloudWorkspace(initial: Workspace, cloud?: CloudBinding) {
       if (document.hidden || pending.current) return;
       void refresh(controller.signal).catch((error) => {
         if (!controller.signal.aborted)
-          setStorageError(
+          setRefreshError(
             error instanceof Error ? error.message : "อ่านข้อมูลกลางไม่สำเร็จ",
           );
       });
@@ -69,6 +75,7 @@ export function useCloudWorkspace(initial: Workspace, cloud?: CloudBinding) {
     const timer = window.setInterval(sync, 15000);
     window.addEventListener("focus", sync);
     return () => {
+      refreshTicket.current += 1;
       controller.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", sync);
@@ -84,6 +91,7 @@ export function useCloudWorkspace(initial: Workspace, cloud?: CloudBinding) {
         return false;
       }
       pending.current = true;
+      refreshTicket.current += 1;
       setSaving(true);
       let sent = false;
       try {
@@ -105,7 +113,11 @@ export function useCloudWorkspace(initial: Workspace, cloud?: CloudBinding) {
         });
         const result = await response.json();
         if (!response.ok) {
-          if ([401, 403, 404].includes(response.status)) blocked.current = true;
+          if ([401, 403, 404].includes(response.status)) {
+            blocked.current = true;
+            canWrite.current = false;
+            cloud.onAccessChange(cloud.id, null);
+          }
           throw new Error(
             typeof result.error === "string"
               ? result.error
@@ -146,5 +158,11 @@ export function useCloudWorkspace(initial: Workspace, cloud?: CloudBinding) {
     },
     [cloud, refresh],
   );
-  return { workspace, commit, ready: true, saving, storageError };
+  return {
+    workspace,
+    commit,
+    ready: true,
+    saving,
+    storageError: storageError || refreshError,
+  };
 }

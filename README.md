@@ -2,7 +2,7 @@
 
 A V2 implementation for the Solar Proposal project with preserved browser-local mode and an optional authenticated shared-workspace backend. This repository is not a complete recovery of the legacy Solar system. Production cutover remains on hold. See [shared-workspace setup/status](docs/SHARED-WORKSPACE.md) and [implementation history](docs/IMPLEMENTATION-STATUS.md).
 
-Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** The user subsequently authorized isolated V2 tables in an existing Supabase project and reuse of its existing Auth accounts. The additive schema and branch-scoped Preview configuration are active. The owner reports successful login; hosted metadata confirms an initially empty workspace, one member and its creation audit. Business-data save/reload, multi-account and multi-device verification remain pending. No legacy application table or Auth setting was changed.
+Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** The user authorized isolated V2 tables in an existing Supabase project and reuse of its existing Auth accounts. The additive schema and branch-scoped Preview configuration are active. Owner-assisted login/customer-save/reload passed: the named synthetic customer is in the hosted database at revision 2 with a matching audit. Only one existing account is currently available, so hosted multi-account role/invitation testing remains pending, along with multi-device and conflict acceptance. No legacy application table or Auth setting was changed.
 
 ## Current scope
 

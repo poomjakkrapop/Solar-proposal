@@ -45,12 +45,14 @@ export function ProposalEditor({
   selectedPackage,
   onSave,
   onCancel,
+  readOnly = false,
 }: {
   proposal: Proposal | null;
   customers: Customer[];
   selectedPackage?: string;
   onSave: Save;
   onCancel: () => void;
+  readOnly?: boolean;
 }) {
   const initialPackage =
     catalog.find(
@@ -264,11 +266,16 @@ export function ProposalEditor({
         <button type="button" className="secondary-button" onClick={onCancel}>
           ยกเลิก
         </button>
-        <button className="primary-button">
+        <button className="primary-button" disabled={readOnly}>
           <Save size={16} />
           {proposal ? "บันทึกการแก้ไข" : "บันทึกแบบร่าง"}
         </button>
       </div>
+      {readOnly && (
+        <p role="status" className="form-error">
+          ขณะนี้ไม่มีสิทธิ์บันทึก ร่างที่กรอกยังอยู่และคัดลอกเก็บไว้ได้
+        </p>
+      )}
     </form>
   );
 }
@@ -277,10 +284,12 @@ export function CustomerEditor({
   customer,
   onSave,
   onCancel,
+  readOnly = false,
 }: {
   customer: Customer | null;
   onSave: Save;
   onCancel: () => void;
+  readOnly?: boolean;
 }) {
   const [error, setError] = useState("");
   return (
@@ -347,11 +356,16 @@ export function CustomerEditor({
         <button type="button" className="secondary-button" onClick={onCancel}>
           ยกเลิก
         </button>
-        <button className="primary-button">
+        <button className="primary-button" disabled={readOnly}>
           <Save size={16} />
           {customer ? "บันทึกการแก้ไข" : "บันทึกลูกค้า"}
         </button>
       </div>
+      {readOnly && (
+        <p role="status" className="form-error">
+          ขณะนี้ไม่มีสิทธิ์บันทึก ร่างที่กรอกยังอยู่และคัดลอกเก็บไว้ได้
+        </p>
+      )}
     </form>
   );
 }
