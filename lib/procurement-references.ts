@@ -1,4 +1,5 @@
 import { procurementReferences } from "./procurement-catalog.ts";
+import { loadBuiltinTemplate } from "./builtin-templates.ts";
 import {
   digestFile,
   readPrivateFile,
@@ -11,6 +12,8 @@ export type StoredProcurementReference = PrivateFile & {
   format: "doc" | "docx";
   sessionOnly?: boolean;
   legacy?: PrivateFile;
+  source?: "builtin";
+  version?: string;
 };
 // The existing legacy key is never overwritten by a converted template.
 export const legacyReferenceKey = (id: ProcurementDocumentId) =>
@@ -25,10 +28,14 @@ type PrivateReader = (
 ) => Promise<PrivateFile | undefined>;
 export async function getProcurementReference(
   id: ProcurementDocumentId,
-  read: PrivateReader = readPrivateFile,
+  read?: PrivateReader,
 ): Promise<StoredProcurementReference | undefined> {
   const reference = procurementReferences.find((item) => item.id === id);
   if (!reference) throw new Error("ไม่พบประเภทต้นแบบจัดจ้าง");
+  if (!read) {
+    const file = await loadBuiltinTemplate(referenceKey(id));
+    return { ...file, format: "docx" };
+  }
   const sources = [
     { key: referenceKey(id), hash: reference.sha256, format: "docx" as const },
     ...(reference.legacy
@@ -57,6 +64,8 @@ export async function getProcurementReference(
   if (failed?.status === "rejected") throw failed.reason;
   return undefined;
 }
+export const getPrivateProcurementReference = (id: ProcurementDocumentId) =>
+  getProcurementReference(id, readPrivateFile);
 export function mergeProcurementReference(
   previous: StoredProcurementReference | undefined,
   incoming: StoredProcurementReference,
@@ -84,10 +93,19 @@ export async function loadProcurementReferences(
   results.forEach((result, i) => {
     if (result.status === "fulfilled") {
       if (result.value) files[procurementReferences[i].id] = result.value;
-    } else
-      errors.push(
-        `${procurementReferences[i].title}: อ่านต้นแบบไม่สำเร็จ กรุณาแนบต้นฉบับใหม่`,
-      );
+    } else {
+      // Only the loader's controlled access messages may reach the sign-in UI.
+      // Unknown provider/cache errors remain generic and cannot leak details.
+      const reason =
+        result.reason instanceof Error &&
+        [
+          "กรุณาเข้าสู่ระบบ SolarDesk เพื่อใช้ต้นแบบส่วนตัว",
+          "บัญชีนี้ยังไม่มีสิทธิ์ใช้ต้นแบบของ SolarDesk",
+        ].includes(result.reason.message)
+          ? result.reason.message
+          : "โหลดต้นแบบของระบบไม่สำเร็จ กรุณาลองใหม่";
+      errors.push(`${procurementReferences[i].title}: ${reason}`);
+    }
   });
   return { files, errors };
 }

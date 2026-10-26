@@ -1,4 +1,5 @@
 import { templateMaps, type TemplateId } from "./template-maps.ts";
+import { loadBuiltinTemplate } from "./builtin-templates.ts";
 import {
   readPrivateFile,
   savePrivateFile,
@@ -7,10 +8,19 @@ import {
 } from "./private-files.ts";
 export type StoredTemplate = PrivateFile<TemplateId> & {
   sessionOnly?: boolean;
+  source?: "builtin";
+  version?: string;
 };
 type TemplateReader = (id: TemplateId) => Promise<StoredTemplate | undefined>;
 type TemplateWriter = typeof savePrivateFile;
 export const getTemplate = (id: TemplateId) => {
+  if (!templateMaps.some((entry) => entry.id === id))
+    throw new Error("ไม่พบประเภทต้นแบบ");
+  return loadBuiltinTemplate(id);
+};
+// Retained for private-source inspection/compatibility; default generation no
+// longer depends on IndexedDB or modifies any original attached by the user.
+export const getPrivateTemplate = (id: TemplateId) => {
   const map = templateMaps.find((entry) => entry.id === id);
   if (!map) throw new Error("ไม่พบประเภทต้นแบบ");
   return readPrivateFile(id, map.sha256);
@@ -31,7 +41,7 @@ export async function loadTemplates(
       errors[ids[i]] =
         result.reason instanceof Error
           ? result.reason.message
-          : "เปิดต้นแบบที่เก็บไว้ไม่สำเร็จ กรุณาแนบต้นฉบับใหม่";
+          : "โหลดต้นแบบของระบบไม่สำเร็จ กรุณาลองใหม่";
   });
   return { files, errors };
 }

@@ -102,6 +102,24 @@ test("payment text includes banking instructions only when configured", () => {
   });
   assert.ok(configured.paymentInstruction.includes("000-0000000"));
 });
+test("approval wording remains pending and cannot be edited as an approval result", () => {
+  assert.equal(
+    buildDocumentValues(proposal, company).approvalDecision,
+    "รอพิจารณา",
+  );
+  assert.equal(
+    solarDraftFields("approval").find(
+      (field) => field.key === "approvalDecision",
+    ).readOnly,
+    true,
+  );
+  assert.equal(
+    templateMaps
+      .find((map) => map.id === "approval")
+      .slots.filter((slot) => slot.key === "approvalDecision").length,
+    2,
+  );
+});
 
 test("manually reviewed quantity columns do not silently follow optimizer or panel counts", () => {
   const values = buildDocumentValues(

@@ -205,7 +205,7 @@ export const procurementReferences: ProcurementReference[] = [
       "ผลตรวจหน้างาน",
       "ปัญหา/การแก้ไข",
     ],
-    note: "แนบ 23-supervision-template.docx ที่บันทึกเป็น Word Document เพื่อสร้างร่าง ผลควบคุมงานต้องกรอกตามข้อเท็จจริง ส่วน DOC เดิมเก็บอ้างอิงแยกได้",
+    note: "ใช้ต้นแบบควบคุมงานของระบบ ผลควบคุมงานและหลักฐานส่งมอบต้องกรอกตามข้อเท็จจริง ส่วน DOC เดิมที่เคยแนบยังเก็บอ้างอิงแยกได้",
     sha256: "39f69b9e92be70cde78ea643e9f32f88b4b5886c9e8d9ec4b9767b53bdd1e96f",
     format: "docx",
     previewable: true,

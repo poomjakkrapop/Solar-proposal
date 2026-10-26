@@ -8,6 +8,8 @@ Current audit and release decision (2026-10-25): [Thai readiness report](docs/RE
 
 ## Current scope
 
+Private central templates now cover all 13 forms: the two Solar forms and eleven procurement forms. Existing confirmed accounts with active SolarDesk membership load them automatically; users no longer attach originals on each device. See [private template workflow, roles and verification boundary](docs/PRIVATE-TEMPLATES.md). Template binaries remain outside Git, public assets and deployment packages. Production cutover remains on hold.
+
 - Workspace catalog now supports owner-managed packages and panel/inverter equipment, active/archive state and draft prefill. Existing proposal prices/specifications remain snapshots. [Catalog behavior, permissions and backup compatibility](docs/CATALOG.md).
 - The owner currently has no legacy database test export. A plan-only Windows backup helper and restore checklist are prepared in [LEGACY-BACKUP.md](docs/LEGACY-BACKUP.md); no real backup/restore has been performed.
 
@@ -16,31 +18,31 @@ Current audit and release decision (2026-10-25): [Thai readiness report](docs/RE
 - Dashboard metrics, status charts, and customer totals derive from the stored records. There are no invented growth percentages.
 - Company settings populate a preliminary A4 browser-print layout. An additional official profile stores branch/address, preparer/reviewer/approver, contact and optional payment-account fields locally.
 - Solar details include PV/inverter specifications, warranties, maintenance, dates and payment terms. Turnkey pricing rounds at each stage in integer satang: operations on base cost, profit on base plus operations, then VAT. The sample's 233,000 baht base produces 294,497.44 baht total. Rates are editable sample defaults, not a claim about current PEA rules.
-- Private DOCX template attachment and draft export support the two supplied forms. Only their hashes and XML slot offsets are in source. Attach the exact originals in the Templates view; binaries remain in browser IndexedDB, not on a server or in git. DOCX generation and preview dependencies load on demand.
+- Private DOCX draft export uses centrally stored, reviewed reusable templates. An authenticated endpoint checks confirmed identity and active owner/editor/viewer membership before reading template bytes; server and browser both check their exact hashes. Old browser-local originals remain untouched and are no longer required for default loading. DOCX generation and preview dependencies load on demand.
 - Procurement workspace registers 11 additional references across customer service, selection, contracting, and delivery/acceptance. Store project-specific contractor/PO/WO/budget/date/committee information separately from the customer and sales price. Track each document's reference/date/internal review status without implying a signature or approval. All records remain in the versioned workspace backup.
 - Export filtered proposals as CSV or the entire workspace as a JSON backup. Import validates records and previews counts before replacement. CSV cells protect against spreadsheet formula injection.
 - Data is stored locally in one versioned snapshot. Legacy v1 browser data is read without deletion, writes are atomic across customer/proposal updates, and corrupt or unsupported data is never silently reset. Storage changes in other tabs are synchronized.
 - Cooperating tabs serialize writes with Web Locks and reject stale editor/import baselines while retaining drafts. Use a current browser on HTTPS (or localhost); without Web Locks, saving is blocked while reading/export remain available. Reload old tabs to the same version. This does not provide multi-device transactions or server authorization.
 - Shared mode adds server-verified sign-in, role/membership checks, RLS-protected reads, transaction/revision-protected writes, invitations and audit events. It is enabled only on the configured audit Preview branch while live acceptance tests continue. Registration, recovery and password changes are absent from SolarDesk to preserve the shared Auth application's behavior. Local mode retains its original storage and limitations.
-- Server-generated final PDF/DOCX, remote template uploads and legacy production integration remain incomplete. This version is not approved for sensitive production use.
+- Client-generated draft DOCX is implemented. Server-generated final PDF/DOCX, self-service template administration and legacy production integration remain incomplete. This version is not approved for sensitive production use.
 
 ## Official form workflow
 
 1. In Company Settings, fill the official branch profile and signatory roles. Leave banking fields blank unless an authorized account should appear; the original sample account is never inherited.
 2. Create/edit a proposal. Enter system/equipment information and document terms. Choose Turnkey and enter the base cost for an approval memo. Saving assigns a unique `QT-<Buddhist year><month>-<sequence>` number unless a number is entered manually.
-3. Open Templates, select the proposal, attach each original DOCX, and resolve the missing-field checklist. Modified templates are deliberately rejected; offsets must be re-audited for every new template revision.
-4. If no original is attached, the primary action opens the file picker and identifies the required form. Open **เตรียม Word ฉบับร่าง** to review the saved figures and adjust labelled draft wording, then acknowledge the notice and download. Financial figures, quantities and composite payment/site terms stay linked to saved project data; a saved-price/calculated-total mismatch blocks export until reviewed and re-saved. Use **ดาวน์โหลดไฟล์ล่าสุดอีกครั้ง** if the browser did not save the file; preview opens only when requested. Downloads use a connected anchor and keep the temporary file URL alive for one minute.
+3. Sign in to the configured Preview, open Templates, select the proposal and resolve the missing-field checklist. The reviewed private template loads automatically. Template revisions still require a reviewed hash and mapping; a mismatched response is rejected with retry guidance.
+4. Open **เตรียม Word ฉบับร่าง** to review the saved figures and adjust labelled draft wording, then acknowledge the notice and download. Financial figures, quantities and composite payment/site terms stay linked to saved project data; a saved-price/calculated-total mismatch blocks export until reviewed and re-saved. Use **ดาวน์โหลดไฟล์ล่าสุดอีกครั้ง** if the browser did not save the file; preview opens only when requested. Downloads use a connected anchor and keep the temporary file URL alive for one minute. A template 401 requires sign-in; a 403 indicates missing access. No original-file attachment is required.
 5. Export a draft, inspect the amounts and every page in Microsoft Word with the original fonts, then authorize issuance outside this prototype. Export does not send or sign anything.
 
 The sample's equipment table uses one merged row with independently spaced descriptions/quantities, not real item rows. The fourth and fifth quantity entries are explicit manual column-position fields because their visual association cannot be verified here. Other supporting quantities and source boilerplate remain as supplied. Check every quantity and the retained On-grid wording against the actual project. System capacity and inverter capacity are separate fields, not inferred from a model name.
 
 Browser preview is content-only: substituted fonts, VML shapes, table positions and pagination differ from Word. The packaged canonical renderer currently lacks LibreOffice; native Word/LibreOffice pagination QA and the final PDF workflow remain pending. Successful XML validation is not print-readiness approval. The supplied source files themselves are never modified.
 
-JSON backups include proposal details and official profiles (including any user-entered payment information); store them securely. They exclude template binaries: retain both original DOCX files separately. Clearing site data removes local records/templates. `localhost` and `127.0.0.1` are different browser storage origins.
+JSON backups include proposal details and official profiles (including any user-entered payment information); store them securely. They exclude template binaries: retain the original Word references separately. Clearing site data still removes browser-local records/old attachments, but the private central template library is loaded again after authorized sign-in. `localhost` and `127.0.0.1` remain different browser storage origins.
 
 ## Procurement references
 
-Open **จัดจ้าง**, choose an existing proposal/project, and attach the supplied files in one batch. SHA-256 identifies the reviewed version of each file; a changed/unknown document is rejected without overwriting an existing reference. All binaries stay browser-local, sharing the original template store without migrating or deleting it. If private storage is unavailable, a verified attachment remains usable in the current tab and is clearly marked for reattachment after refresh. A failed cache entry no longer hides other valid files. All 11 forms now support DOCX draft generation and content previews. For supervision form 23, attach the reviewed Microsoft Word conversion `23-supervision-template.docx`; the original DOC remains downloadable with its existing storage key preserved. The DOCX uses a separate key, and attaching either variant cannot overwrite or downgrade the other.
+Open **จัดจ้าง** while signed in and choose an existing proposal/project. All eleven reviewed DOCX templates load from the private central library, including the converted supervision form 23. Existing DOC/DOCX originals and their IndexedDB keys are preserved; default loading does not read or overwrite them. SHA-256 verifies each registered version before it can be used. A failed request can retry independently without hiding other ready forms or requiring reattachment.
 
 The four stage buttons show 2 / 3 / 4 / 2 documents. Their grouping is an organizational aid, not a legal workflow approval or a claim that source filename numbers establish a valid order. Save the project fields and document tracking explicitly. Switching projects/pages or leaving the browser warns about unsaved edits. Saving an ordinary sales proposal preserves its procurement fields. Concurrent edits to the same procurement data are rejected instead of silently overwriting them.
 
@@ -58,6 +60,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+Local/demo business records remain available when cloud mode is disabled. The private template library requires the configured authenticated backend and active SolarDesk membership; local/demo mode has no public template-file fallback. Use the audit Preview for the central no-attachment document workflow.
 
 ## Verification
 
@@ -80,7 +84,7 @@ Use GitHub as the source of truth for reviewed V2 changes: feature branch → pu
 
 Do not remove the `main` guard, switch domains or manually release production until legacy source/data recovery, feature compatibility, authentication/shared storage and user acceptance are complete. Test with isolated preview credentials/data. The observed CLI `--skip-domain` alias-assignment incident is recorded in the implementation status; do not assume that flag alone protects the live domain in this environment.
 
-Do not commit `.env`, original customer documents, private recovery files or database exports. `.env.example` contains empty names only; the browser's localStorage/IndexedDB data is not part of the repository. Existing document binaries stay on the user's machine.
+Do not commit `.env`, original customer documents, template binaries, private recovery files or database exports. `.env.example` contains empty names only; browser localStorage/IndexedDB data is not part of the repository. Original references remain on the user's machine, and the reviewed reusable versions reside in private server storage behind the authenticated endpoint.
 
 ## Remaining roadmap
 

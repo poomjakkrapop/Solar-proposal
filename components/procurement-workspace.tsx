@@ -1,13 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Check,
   ChevronDown,
   Download,
   Eye,
   FileText,
   Save,
-  Upload,
+  RotateCcw,
 } from "lucide-react";
 import {
   defaultProcurement,
@@ -24,12 +23,13 @@ import {
   type ProcurementStage,
 } from "../lib/procurement-catalog";
 import {
-  attachProcurementReference,
+  getProcurementReference,
   loadProcurementReferences,
-  mergeProcurementReference,
   type StoredProcurementReference,
 } from "../lib/procurement-references";
 import { money, type Company, type Proposal } from "../lib/workspace";
+import { readPrivateFile } from "../lib/private-files";
+import { procurementDocumentReadiness } from "../lib/procurement-document-data";
 import { downloadBlob } from "../lib/file-download";
 import { ProcurementDocumentDraft } from "./procurement-document-draft";
 import { ProcurementEditor } from "./procurement-editor";
@@ -55,15 +55,17 @@ export function ProcurementWorkspace({
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const [selected, setSelected] = useState(proposals[0]?.id || "");
+  const selectedId = proposals.some((item) => item.id === selected)
+    ? selected
+    : proposals[0]?.id || "";
   const [dirty, setDirty] = useState(false);
   useEffect(() => {
     onDirtyChange(dirty);
     return () => onDirtyChange(false);
   }, [dirty, onDirtyChange]);
   const [references, setReferences] = useState<StoredReferences>({});
-  const attachedIds = useRef(new Set<ProcurementDocumentId>());
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(true);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<{
     title: string;
@@ -71,64 +73,41 @@ export function ProcurementWorkspace({
   }>();
   useEffect(() => {
     let active = true;
-    loadProcurementReferences().then(({ files, errors }) => {
-      if (!active) return;
-      setReferences((current) => {
-        const next = { ...files };
-        for (const item of procurementReferences) {
-          const selected = current[item.id];
-          if (selected)
-            next[item.id] = mergeProcurementReference(next[item.id], selected);
-        }
-        return next;
+    setBusy(true);
+    setError("");
+    loadProcurementReferences()
+      .then(({ files, errors }) => {
+        if (!active) return;
+        setReferences((current) => ({ ...current, ...files }));
+        setError(
+          errors.some((message) => message.includes("เข้าสู่ระบบ"))
+            ? "กรุณาเข้าสู่ระบบ SolarDesk เพื่อโหลดต้นแบบส่วนกลาง"
+            : errors.some((message) => message.includes("ไม่มีสิทธิ์"))
+              ? "บัญชีนี้ยังไม่มีสิทธิ์ใช้ต้นแบบส่วนกลางของ SolarDesk"
+              : errors.join(" · "),
+        );
+      })
+      .catch(() => {
+        if (active)
+          setError(
+            "โหลดต้นแบบระบบไม่สำเร็จ ตรวจการเชื่อมต่อแล้วกดโหลดอีกครั้ง",
+          );
+      })
+      .finally(() => {
+        if (active) setBusy(false);
       });
-      if (!attachedIds.current.size) setError(errors.join(" · "));
-    });
     return () => {
       active = false;
     };
-  }, []);
-  const proposal = proposals.find((item) => item.id === selected);
-  async function attach(files: File[], expectedId?: ProcurementDocumentId) {
-    if (!files.length) return;
-    setBusy(true);
-    setError("");
-    setMessage("");
-    const failures: string[] = [];
-    let count = 0;
-    for (const file of files) {
-      try {
-        const result = await attachProcurementReference(file, expectedId);
-        attachedIds.current.add(result.id);
-        setReferences((current) => ({
-          ...current,
-          [result.id]: mergeProcurementReference(
-            current[result.id],
-            result.stored,
-          ),
-        }));
-        count++;
-      } catch (error) {
-        failures.push(
-          error instanceof Error ? error.message : `${file.name}: แนบไม่สำเร็จ`,
-        );
-      }
-    }
-    setMessage(
-      count
-        ? `แนบต้นแบบ ${count} ไฟล์แล้ว · DOCX ใช้สร้างร่าง ส่วน DOC เก็บอ้างอิง`
-        : "",
-    );
-    setError(failures.join(" · "));
-    setBusy(false);
-  }
+  }, [loadAttempt]);
+  const proposal = proposals.find((item) => item.id === selectedId);
   return (
     <div className="procurement-workspace">
       <section className="panel document-selection">
         <label className="field">
           เลือกโครงการสำหรับชุดจัดจ้าง
           <select
-            value={selected}
+            value={selectedId}
             onChange={(event) => {
               if (
                 dirty &&
@@ -151,23 +130,8 @@ export function ProcurementWorkspace({
             ))}
           </select>
         </label>
-        <label className="template-upload-label">
-          <Upload size={16} />
-          {busy ? "กำลังแนบต้นแบบ…" : "แนบชุดต้นแบบจัดจ้าง"}
-          <input
-            type="file"
-            multiple
-            accept=".doc,.docx"
-            aria-label="แนบชุดต้นแบบจัดจ้าง"
-            disabled={busy}
-            onChange={(event) => {
-              void attach(Array.from(event.target.files || []));
-              event.target.value = "";
-            }}
-          />
-        </label>
         <span className="reference-count">
-          ต้นแบบ {Object.keys(references).length} / 11 แบบ · DOCX{" "}
+          ต้นแบบระบบพร้อมใช้{" "}
           {
             Object.values(references).filter((file) => file?.format === "docx")
               .length
@@ -176,23 +140,37 @@ export function ProcurementWorkspace({
         </span>
       </section>
       <p className="document-review-notice">
-        สร้าง Word ฉบับร่างจากต้นแบบ DOCX ครบ 11 แบบได้
-        โดยเติมข้อมูลจากโครงการและตรวจข้อความก่อนดาวน์โหลด ไม่มีการลงนาม อนุมัติ
-        หรือยืนยันผลตรวจรับอัตโนมัติ ต้นแบบเก็บเฉพาะเบราว์เซอร์และ URL นี้
-        แยกจากข้อมูลโครงการบนเซิร์ฟเวอร์ หากเปลี่ยนเครื่องหรือ URL ต้องแนบใหม่
-        ฟอร์มควบคุมงานใช้สำเนา DOCX ที่แปลงและตรวจแล้ว ส่วน DOC
-        เดิมยังเก็บและดาวน์โหลดอ้างอิงได้
+        ระบบโหลดต้นแบบส่วนกลางครบ 11 แบบ
+        หลังเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์ใช้งาน ไม่ต้องแนบไฟล์
+        เติมข้อมูลจากข้อเสนอ หน่วยงาน และชุดจัดจ้างที่บันทึกไว้
+        แล้วตรวจร่างก่อนดาวน์โหลด ไม่มีการลงนาม อนุมัติ
+        หรือยืนยันผลตรวจรับอัตโนมัติ
       </p>
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
-      {message && (
-        <p className="form-success" role="status">
-          <Check size={15} />
-          {message}
+      {error.includes("เข้าสู่ระบบ") && (
+        <p>
+          <a href="/login">เข้าสู่ระบบอีกครั้งเพื่อโหลดต้นแบบส่วนกลาง</a>
         </p>
+      )}
+      {busy && (
+        <p className="field-hint" role="status">
+          กำลังโหลดต้นแบบระบบ… กรอกข้อมูลโครงการระหว่างรอได้
+        </p>
+      )}
+      {error && (
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={busy}
+          onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+        >
+          <RotateCcw size={16} />
+          โหลดต้นแบบอีกครั้ง
+        </button>
       )}
       {proposal ? (
         <ProcurementProject
@@ -201,7 +179,6 @@ export function ProcurementWorkspace({
           company={company}
           references={references}
           busy={busy}
-          onAttach={(id, file) => void attach([file], id)}
           onSave={onSave}
           onDirty={setDirty}
           onPreview={(id) => {
@@ -221,8 +198,9 @@ export function ProcurementWorkspace({
         </p>
       )}
       <p className="field-hint">
-        ไฟล์สำรอง JSON รวมข้อมูลจัดจ้างและสถานะเอกสาร แต่ไม่รวมต้นแบบ Word
-        เก็บต้นฉบับแยกไว้ด้วย การแนบไฟล์ไม่เปลี่ยนสถานะเป็นตรวจทานแล้ว
+        ไฟล์สำรอง JSON รวมข้อมูลจัดจ้างและสถานะเอกสารตามเดิม
+        ต้นแบบส่วนกลางโหลดให้อัตโนมัติเมื่อล็อกอินด้วยบัญชีที่มีสิทธิ์บนเครื่องใหม่
+        ข้อความที่ปรับเฉพาะในร่างไม่บันทึกกลับข้อมูลกลาง
       </p>
       {preview && (
         <WordPreviewDialog
@@ -239,7 +217,6 @@ function ProcurementProject({
   company,
   references,
   busy,
-  onAttach,
   onSave,
   onDirty,
   onPreview,
@@ -248,7 +225,6 @@ function ProcurementProject({
   company: Company;
   references: StoredReferences;
   busy: boolean;
-  onAttach: (id: ProcurementDocumentId, file: File) => void;
   onSave: SaveProcurement;
   onDirty: (dirty: boolean) => void;
   onPreview: (id: ProcurementDocumentId) => void;
@@ -262,9 +238,8 @@ function ProcurementProject({
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [draftDocument, setDraftDocument] = useState<ProcurementDocumentId>();
-  const fileInputs = useRef<
-    Partial<Record<ProcurementDocumentId, HTMLInputElement | null>>
-  >({});
+  const [legacyNotice, setLegacyNotice] = useState("");
+  const [legacyBusy, setLegacyBusy] = useState(false);
   const dirty = JSON.stringify(draft) !== base;
   const conflict = current !== base;
   useEffect(() => {
@@ -288,6 +263,34 @@ function ProcurementProject({
     setDraft(next);
     setSaved(false);
     setError("");
+  }
+  async function downloadLegacyReference() {
+    setLegacyBusy(true);
+    setLegacyNotice("");
+    try {
+      const stored = await getProcurementReference(
+        "supervision",
+        readPrivateFile,
+      );
+      const legacy = stored?.format === "doc" ? stored : stored?.legacy;
+      if (!legacy) {
+        setLegacyNotice(
+          "ไม่พบ DOC อ้างอิงเดิมในเบราว์เซอร์นี้ ใช้ต้นแบบระบบสร้างร่างได้ตามปกติ",
+        );
+        return;
+      }
+      downloadBlob(
+        new Blob([legacy.buffer], { type: "application/msword" }),
+        `ต้นแบบอ้างอิง_${legacy.filename}`,
+      );
+      setLegacyNotice("ส่ง DOC อ้างอิงเดิมให้เบราว์เซอร์แล้ว");
+    } catch {
+      setLegacyNotice(
+        "อ่าน DOC อ้างอิงเดิมไม่สำเร็จ ข้อมูลเดิมยังอยู่ ใช้ต้นแบบระบบสร้างร่างได้ตามปกติ",
+      );
+    } finally {
+      setLegacyBusy(false);
+    }
   }
   const warnings = procurementWarnings(draft);
   const reviewed = procurementReferences.filter(
@@ -393,8 +396,11 @@ function ProcurementProject({
                     draft.documents[template.id] || defaultProcurementDocument;
                   const attached = references[template.id];
                   const draftable = attached?.format === "docx";
-                  const legacy =
-                    attached?.format === "doc" ? attached : attached?.legacy;
+                  const missing = procurementDocumentReadiness(
+                    { ...proposal, procurement: draft },
+                    company,
+                    template.id,
+                  );
                   return (
                     <article
                       className="panel procurement-document-card"
@@ -414,17 +420,12 @@ function ProcurementProject({
                         </div>
                       </div>
                       <p className="reference-status">
-                        {attached
-                          ? attached.sessionOnly
-                            ? "ต้นแบบพร้อมใช้ในแท็บนี้ · รีเฟรชแล้วต้องแนบใหม่"
-                            : "ต้นแบบแนบแล้ว · เก็บในเบราว์เซอร์นี้"
-                          : "ยังไม่ได้แนบต้นแบบ"}
-                        {attached?.format === "doc" &&
-                          " · DOC รุ่นเก่า ต้องแนบสำเนา DOCX เพื่อสร้างร่าง"}
+                        {draftable
+                          ? "ต้นแบบระบบพร้อมใช้"
+                          : busy
+                            ? "กำลังโหลดต้นแบบระบบ…"
+                            : "โหลดต้นแบบยังไม่สำเร็จ กดโหลดต้นแบบอีกครั้งด้านบน"}
                       </p>
-                      {attached && (
-                        <p className="template-filename">{attached.filename}</p>
-                      )}
                       <p className="field-hint">{template.note}</p>
                       <details className="reference-fields">
                         <summary>
@@ -526,6 +527,21 @@ function ProcurementProject({
                           />
                         </label>
                       </div>
+                      {missing.length > 0 && (
+                        <div className="document-checklist">
+                          <strong>ข้อมูลที่ต้องเติมก่อนสร้างเอกสาร</strong>
+                          <ul>
+                            {missing.map((field) => (
+                              <li key={field}>{field}</li>
+                            ))}
+                          </ul>
+                          <p className="field-hint">
+                            เติมข้อมูลกลางและเลขอ้างอิงของเอกสาร
+                            แล้วกดบันทึกชุดจัดจ้าง
+                            ข้อมูลหน่วยงานแก้ได้ในเมนูตั้งค่าบริษัท
+                          </p>
+                        </div>
+                      )}
                       <button
                         className="secondary-button"
                         type="button"
@@ -533,70 +549,51 @@ function ProcurementProject({
                         onClick={() => onPreview(template.id)}
                       >
                         <Eye size={15} />
-                        {draftable
-                          ? "ดูต้นแบบอ้างอิง"
-                          : "แนบต้นแบบ DOCX เพื่อดูตัวอย่าง"}
+                        ดูต้นแบบระบบ
                       </button>
-                      <label className="template-upload-label">
-                        <Upload size={15} />
-                        {attached ? "เปลี่ยนต้นแบบ" : "แนบต้นแบบ"}{" "}
-                        {template.legacy ? "DOC / DOCX" : "DOCX"}
-                        <input
-                          type="file"
-                          accept={template.legacy ? ".doc,.docx" : ".docx"}
-                          aria-label={`แนบต้นแบบ ${template.title}`}
-                          disabled={busy}
-                          ref={(node) => {
-                            fileInputs.current[template.id] = node;
-                          }}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            event.target.value = "";
-                            if (file) onAttach(template.id, file);
-                          }}
-                        />
-                      </label>
                       <button
                         type="button"
                         className="primary-button"
-                        disabled={busy || (draftable && (dirty || conflict))}
+                        disabled={
+                          !draftable || dirty || conflict || !!missing.length
+                        }
                         onClick={() => {
-                          if (!draftable) {
-                            fileInputs.current[template.id]?.click();
+                          if (!draftable || dirty || conflict || missing.length)
                             return;
-                          }
                           setDraftDocument(template.id);
                         }}
                       >
                         <Download size={15} />
-                        {!attached
-                          ? "แนบต้นแบบเพื่อดาวน์โหลด"
-                          : draftable
-                            ? "เตรียม Word ฉบับร่าง"
-                            : "แนบ DOCX เพื่อสร้างร่าง"}
+                        {!draftable
+                          ? busy
+                            ? "กำลังโหลดต้นแบบ…"
+                            : "รอโหลดต้นแบบระบบ"
+                          : "เตรียม Word ฉบับร่าง"}
                       </button>
-                      {legacy && (
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() => {
-                            try {
-                              downloadBlob(
-                                new Blob([legacy.buffer], {
-                                  type: "application/msword",
-                                }),
-                                `ต้นแบบอ้างอิง_${legacy.filename}`,
-                              );
-                            } catch {
-                              setError(
-                                "เบราว์เซอร์ไม่รับคำสั่งดาวน์โหลด กรุณาลองใหม่",
-                              );
-                            }
-                          }}
-                        >
-                          <Download size={15} />
-                          ดาวน์โหลดต้นแบบ DOC เดิม
-                        </button>
+                      {template.id === "supervision" && (
+                        <details className="reference-fields">
+                          <summary>DOC อ้างอิงเดิมในเครื่อง (ถ้ามี)</summary>
+                          <p className="field-hint">
+                            ไฟล์เดิมเก็บแยกจากต้นแบบระบบ
+                            ใช้สำหรับอ้างอิงเท่านั้น
+                          </p>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={legacyBusy}
+                            onClick={() => void downloadLegacyReference()}
+                          >
+                            <Download size={15} />
+                            {legacyBusy
+                              ? "กำลังอ่าน DOC เดิม…"
+                              : "ดาวน์โหลด DOC เดิมที่เคยเก็บไว้"}
+                          </button>
+                          {legacyNotice && (
+                            <p className="field-hint" role="status">
+                              {legacyNotice}
+                            </p>
+                          )}
+                        </details>
                       )}
                       {attached && draftable && (dirty || conflict) && (
                         <p className="field-hint">

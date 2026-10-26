@@ -77,6 +77,20 @@ test("disabled shared-data API fails closed with private cache headers", async (
   assert.match(response.headers.get("cache-control"), /private.*no-store/);
   assert.equal(typeof (await response.json()).error, "string");
 });
+test("private templates fail closed when cloud mode is disabled and are not static public files", async () => {
+  const response = await get("/api/document-templates/approval");
+  assert.equal(response.status, 503);
+  assert.match(response.headers.get("cache-control"), /private.*no-store/);
+  assert.match(response.headers.get("content-type"), /application\/json/);
+  await response.text();
+  assert.equal((await get("/document-templates/approval.docx")).status, 404);
+});
+test("unknown document template IDs are rejected before configuration/provider access", async () => {
+  const response = await get("/api/document-templates/unknown-form");
+  assert.equal(response.status, 404);
+  assert.match(response.headers.get("cache-control"), /private.*no-store/);
+  await response.text();
+});
 test("shared-project registration is refused before provider or secret access", async () => {
   const response = await post({
     action: "signup",

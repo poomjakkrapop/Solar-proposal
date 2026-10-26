@@ -4,6 +4,7 @@ import type { Company, Proposal } from "./workspace.ts";
 
 export type DraftField = { key: string; label: string; readOnly?: boolean };
 const labels: Record<string, string> = {
+  approvalDecision: "ผลการพิจารณา",
   preparerRole: "ตำแหน่งผู้จัดทำ",
   managerRole: "ตำแหน่งผู้อนุมัติ",
   reviewerRole: "ตำแหน่งผู้ผ่านเรื่อง",

@@ -2,9 +2,11 @@
 
 Updated 2026-10-26. This change updates the audit Preview. It does not replace the legacy production app or migrate its records.
 
+Template loading now uses the private central library rather than browser attachments. See [current access, workflow and verification boundary](PRIVATE-TEMPLATES.md). The earlier review-dialog/browser evidence below is retained as history; it does not establish hosted authenticated access to the new template endpoint.
+
 ## Common document flow
 
-The two existing Solar originals (approval estimate and expense notification/quotation) now follow the same review flow as the eleven procurement forms: select a saved project, attach the exact reviewed original, open **เตรียม Word ฉบับร่าง**, inspect the data/text, acknowledge the draft notice and download. Retry uses the last identical bytes; content preview remains optional.
+The two Solar forms (approval estimate and expense notification/quotation) follow the same review flow as the eleven procurement forms: sign in with authorized SolarDesk membership, select a saved project, let the reviewed private template load, open **เตรียม Word ฉบับร่าง**, inspect the data/text, acknowledge the draft notice and download. Retry uses the last identical bytes; content preview remains optional. No original attachment is required.
 
 A shared Word draft dialog retains the original source package through the existing exact-hash/OOXML engine. It keeps the title and download actions visible while the content scrolls. Solar totals are summarized first; the remaining saved data expands on demand. Native dialogs provide modal focus and inert background controls; Escape closes a nested preview without closing its parent draft. Closing edited wording offers an in-app choice to return or discard that temporary wording. Editing resets acknowledgement and hides an obsolete retry. A changed saved project/company/source blocks generation until the draft is reopened.
 
@@ -23,7 +25,7 @@ Templates load on demand like procurement and catalog. Customer totals are index
 
 Template descriptions/status text have stronger contrast; search, numeric wrappers and textareas show keyboard focus. The draft uses two columns on desktop and one on small screens. The tested 390-pixel viewport had a 390-pixel page width and an approximately 374-pixel dialog, with download controls inside the viewport. This is responsive smoke verification, not a complete screen-reader/device audit or hosted performance benchmark.
 
-## Verification and limits
+## Earlier review-dialog verification and limits
 
 The regression suite covers mismatched/large estimates, whitespace, mapped field coverage, locked composite data, XML controls, safe filenames and customer-summary parity. Browser checks with synthetic data cover both Solar downloads, identical-byte retry, editing/acknowledgement reset, return/discard, nested preview/Escape, shared-data changes invalidating a draft, retention of originals after reload, and a procurement draft through the shared dialog. Both settings forms retained drafts when navigation was cancelled; after saving only company details, official-profile navigation protection remained active. Saving both retained the new values on reopening; synthetic test edits were restored.
 

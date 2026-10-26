@@ -94,6 +94,7 @@ export function buildDocumentValues(
     " เพื่อจะได้ดำเนินการติดตั้งระบบผลิตไฟฟ้าจากพลังงานแสงอาทิตย์ให้ต่อไป";
   return {
     customerName: proposal.customer,
+    approvalDecision: "รอพิจารณา",
     dateLong: thaiLongDate(solar.issueDate),
     siteFullAddress,
     preparerRole: blank(profile.preparerRole),

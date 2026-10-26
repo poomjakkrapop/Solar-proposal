@@ -1,5 +1,7 @@
 # SolarDesk: โหมดข้อมูลกลาง
 
+**อัปเดตต้นแบบส่วนตัว 26 ตุลาคม 2026:** เอกสารทั้ง 13 แบบโหลดอัตโนมัติผ่าน `/api/document-templates/[id]` หลังยืนยันบัญชี อีเมล และ active membership ของ SolarDesk (owner/editor/viewer) ใช้ตารางแยก `sd_v2_document_templates` ที่เปิด/บังคับ RLS และไม่มีสิทธิ์อ่านตรงสำหรับ anon/authenticated; server role อ่านได้อย่างเดียว ต้นแบบไม่อยู่ใน Git, public assets หรือ deployment ผู้ใช้ไม่ต้องแนบต้นฉบับซ้ำ และข้อมูล IndexedDB เดิมไม่ถูกแก้หรือลบ ดู [PRIVATE-TEMPLATES.md](PRIVATE-TEMPLATES.md) สำหรับวิธีใช้และขอบเขตตรวจรับ การใช้ต้นแบบส่วนตัวต้องมี backend ที่ตั้งค่าพร้อมและล็อกอิน ไม่เปิดให้ local/demo ที่ยังไม่ตั้งค่าใช้ไฟล์สาธารณะทดแทน
+
 อัปเดต 25 ตุลาคม 2026 — **ยังไม่อนุมัติ production cutover** เปิดข้อมูลกลางเฉพาะ Preview แล้ว การล็อกอิน เพิ่มลูกค้าทดสอบและรีเฟรชผ่านโดยผู้ใช้ พร้อมหลักฐานจากฐานข้อมูลที่ revision 2 การทดสอบสิทธิ์หลายบัญชีบนระบบจริงยังค้าง เพราะขณะนี้มีบัญชีเดิมพร้อมทดสอบเพียงบัญชีเดียว
 
 อัปเดตการตั้งค่า: ผู้ใช้เพิ่ม server Secret แล้ว ตรวจเฉพาะ metadata ว่าเป็น Sensitive ใน Preview branch ที่อนุมัติ จากนั้นเปิด `SOLARDESK_CLOUD_ENABLED=true` เฉพาะ branch นี้เพื่อเริ่ม live verification ไม่มีการอ่านค่าลับกลับมา การมี configuration ครบยังไม่ใช่หลักฐานว่าการล็อกอินและเขียนฐานข้อมูลผ่านแล้ว
@@ -21,7 +23,7 @@ Follow-up: เพิ่มแค็ตตาล็อก owner-only และ mi
 - `/login` และ `/api/auth` รับเฉพาะ signin/signout cookie เป็น HttpOnly/SameSite=Lax/Secure ใน production; ไม่มี registration/reset/update-user endpoint
 - `/api/workspace` ตรวจ origin, JSON/content type, ขนาด body, ข้อมูลธุรกิจ/เลขซ้ำ, identity และ membership ทุกคำขอ Role มาจาก DB ไม่รับ actor/role จาก client เพื่อกำหนดสิทธิ์
 - อ่านข้อมูลด้วย client ของผู้ใช้ภายใต้ RLS เขียนผ่าน server-only RPC โดย DB ตรวจ actor/membership/role และ revision ซ้ำภายใน transaction
-- cloud hook ไม่อ่าน/เขียน localStorage; ต้นแบบ Word ยังคงอยู่ใน IndexedDB ของเครื่องนั้น ไม่มีการอัปโหลดต้นแบบส่วนตัว
+- cloud hook ไม่อ่าน/เขียน localStorage; ต้นแบบส่วนตัวโหลดจาก endpoint ที่ตรวจ identity/membership และส่ง private/no-store ต้นฉบับ IndexedDB เดิมยังอยู่ แต่ default loader ไม่อ่านหรือเขียนทับ
 - มี owner/editor/viewer, รหัสเชิญผูกอีเมลบัญชีที่ยืนยันแล้ว ใช้ครั้งเดียว ภายใน 7 วัน, การระงับ/เปลี่ยนสิทธิ์ และ audit events ที่ไม่เก็บเนื้อหาเอกสารเต็ม
 
 ## ตารางและ migration
