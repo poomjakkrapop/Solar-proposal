@@ -5,6 +5,7 @@ import {
   type SolarDetails,
 } from "./solar.ts";
 import { isProcurement, type Procurement } from "./procurement.ts";
+import { defaultCatalog, validateCatalog, type Catalog } from "./catalog.ts";
 
 export const statuses = [
   "ร่าง",
@@ -55,6 +56,7 @@ export type Workspace = {
   proposals: Proposal[];
   customers: Customer[];
   company: Company;
+  catalog?: Catalog;
 };
 export const defaultCompany: Company = {
   name: "Solar Energy Co.",
@@ -64,27 +66,7 @@ export const defaultCompany: Company = {
   taxId: "",
 };
 export const WORKSPACE_KEY = "solardesk-workspace:v2";
-export const catalog = [
-  {
-    name: "Residential Standard",
-    label: "บ้านพักอาศัย",
-    system: 5,
-    price: 219000,
-  },
-  {
-    name: "Residential Premium",
-    label: "บ้านพักอาศัย",
-    system: 10,
-    price: 389000,
-  },
-  { name: "Business Pro", label: "ธุรกิจและอาคาร", system: 30, price: 945000 },
-  {
-    name: "Industrial Max",
-    label: "โรงงานอุตสาหกรรม",
-    system: 100,
-    price: 2780000,
-  },
-] as const;
+export const catalog = defaultCatalog.packages;
 const moneyFormatter = new Intl.NumberFormat("th-TH", {
   style: "currency",
   currency: "THB",
@@ -192,11 +174,23 @@ export function validateWorkspace(value: unknown): Workspace {
           proposal.customer.trim().toLocaleLowerCase(),
       )?.id,
   }));
-  return { proposals, customers, company: value.company };
+  return {
+    proposals,
+    customers,
+    company: value.company,
+    ...(value.catalog === undefined
+      ? {}
+      : { catalog: validateCatalog(value.catalog) }),
+  };
 }
 export function parseWorkspace(raw: string): Workspace {
   const envelope: unknown = JSON.parse(raw);
-  if (!record(envelope) || envelope.schemaVersion !== 2)
+  if (
+    !record(envelope) ||
+    (envelope.schemaVersion !== 2 && envelope.schemaVersion !== 3) ||
+    (envelope.schemaVersion === 3 &&
+      (!record(envelope.data) || envelope.data.catalog === undefined))
+  )
     throw new Error(
       "เวอร์ชันไฟล์ข้อมูลไม่รองรับ กรุณาใช้ไฟล์สำรองจาก SolarDesk",
     );
@@ -205,7 +199,7 @@ export function parseWorkspace(raw: string): Workspace {
 export function serializeWorkspace(workspace: Workspace) {
   return JSON.stringify(
     {
-      schemaVersion: 2,
+      schemaVersion: workspace.catalog ? 3 : 2,
       exportedAt: new Date().toISOString(),
       data: validateWorkspace(workspace),
     },

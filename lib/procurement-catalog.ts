@@ -1,9 +1,6 @@
 import type { ProcurementDocumentId } from "./procurement.ts";
 export type ProcurementStage =
-  | "customer"
-  | "selection"
-  | "contract"
-  | "delivery";
+  "customer" | "selection" | "contract" | "delivery";
 export type ProcurementReference = {
   id: ProcurementDocumentId;
   number: string;
@@ -14,6 +11,7 @@ export type ProcurementReference = {
   sha256: string;
   format: string;
   previewable: boolean;
+  legacy?: { sha256: string; format: "doc" };
 };
 export const procurementStages: {
   id: ProcurementStage;
@@ -191,7 +189,7 @@ export const procurementReferences: ProcurementReference[] = [
       "ค่าปรับ",
       "เอกสารแนบ",
     ],
-    note: "เป็นแบบสัญญาที่มีข้อเลือกหลายกรณี ยังไม่เปิดสร้างหรือเซ็นอัตโนมัติ",
+    note: "เป็นร่างสัญญาที่มีข้อเลือกหลายกรณี ต้องเลือกเงื่อนไขให้ตรงงานและตรวจใน Word ก่อนลงนาม",
     sha256: "d342ef34d12ea7037f65fc4adfc98ff2ce9301e5e4ef554ca85ec7d3bab9f83b",
     format: "docx",
     previewable: true,
@@ -207,10 +205,15 @@ export const procurementReferences: ProcurementReference[] = [
       "ผลตรวจหน้างาน",
       "ปัญหา/การแก้ไข",
     ],
-    note: "เป็น Word รุ่นเก่า (.doc) ต้องมีสำเนา .docx ที่ตรวจเทียบแล้วก่อนตั้งค่าช่องข้อมูล",
-    sha256: "0e1d1959a2b58c7b9f59060a96e91c281b2f687f8bb0ca152c292ed94f072269",
-    format: "doc",
-    previewable: false,
+    note: "ใช้ต้นแบบควบคุมงานของระบบ ผลควบคุมงานและหลักฐานส่งมอบต้องกรอกตามข้อเท็จจริง ส่วน DOC เดิมที่เคยแนบยังเก็บอ้างอิงแยกได้",
+    sha256: "39f69b9e92be70cde78ea643e9f32f88b4b5886c9e8d9ec4b9767b53bdd1e96f",
+    format: "docx",
+    previewable: true,
+    legacy: {
+      sha256:
+        "0e1d1959a2b58c7b9f59060a96e91c281b2f687f8bb0ca152c292ed94f072269",
+      format: "doc",
+    },
   },
   {
     id: "acceptance",

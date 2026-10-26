@@ -1,42 +1,54 @@
 # SolarDesk — Solar Proposal Workspace (V2 prototype)
 
-A fresh, isolated, browser-local implementation for the Solar Proposal project. This repository contains the reviewed V2 application, not a complete recovery of the legacy system. The application does not connect to the existing production database. Deployment status and release limitations are recorded in [docs/IMPLEMENTATION-STATUS.md](docs/IMPLEMENTATION-STATUS.md).
+A V2 implementation for the Solar Proposal project with preserved browser-local mode and an optional authenticated shared-workspace backend. This repository is not a complete recovery of the legacy Solar system. Production cutover remains on hold. See [shared-workspace setup/status](docs/SHARED-WORKSPACE.md) and [implementation history](docs/IMPLEMENTATION-STATUS.md).
+
+The legacy deployment's 96 text source files have now been recovered privately and verified against Vercel SHA-1 identifiers. Its source/data are not published in this repository. See the [legacy compatibility matrix and remaining work](docs/LEGACY-COMPATIBILITY.md); the old approval states, PDF generators, editable catalog and stored assets must be preserved before any replacement.
+
+Current audit and release decision (2026-10-25): [Thai readiness report](docs/READINESS-AUDIT.md). **Production cutover remains No-Go.** The user authorized isolated V2 tables in an existing Supabase project and reuse of its existing Auth accounts. The additive schema and branch-scoped Preview configuration are active. Owner-assisted login/customer-save/reload passed: the named synthetic customer is in the hosted database at revision 2 with a matching audit. Only one existing account is currently available, so hosted multi-account role/invitation testing remains pending, along with multi-device and conflict acceptance. No legacy application table or Auth setting was changed.
 
 ## Current scope
+
+Private central templates now cover all 13 forms: the two Solar forms and eleven procurement forms. Existing confirmed accounts with active SolarDesk membership load them automatically; users no longer attach originals on each device. See [private template workflow, roles and verification boundary](docs/PRIVATE-TEMPLATES.md). Template binaries remain outside Git, public assets and deployment packages. Production cutover remains on hold.
+
+- Workspace catalog now supports owner-managed packages and panel/inverter equipment, active/archive state and draft prefill. Existing proposal prices/specifications remain snapshots. [Catalog behavior, permissions and backup compatibility](docs/CATALOG.md).
+- The owner currently has no legacy database test export. A plan-only Windows backup helper and restore checklist are prepared in [LEGACY-BACKUP.md](docs/LEGACY-BACKUP.md); no real backup/restore has been performed.
 
 - Responsive Thai-language workspace with dashboard, proposals, customers, catalog, and templates.
 - Create and edit proposals and customers, select an existing customer, prefill system size/pricing from a package, add notes and a validity date, filter/search, and update status.
 - Dashboard metrics, status charts, and customer totals derive from the stored records. There are no invented growth percentages.
 - Company settings populate a preliminary A4 browser-print layout. An additional official profile stores branch/address, preparer/reviewer/approver, contact and optional payment-account fields locally.
 - Solar details include PV/inverter specifications, warranties, maintenance, dates and payment terms. Turnkey pricing rounds at each stage in integer satang: operations on base cost, profit on base plus operations, then VAT. The sample's 233,000 baht base produces 294,497.44 baht total. Rates are editable sample defaults, not a claim about current PEA rules.
-- Private DOCX template attachment and draft export support the two supplied forms. Only their hashes and XML slot offsets are in source. Attach the exact originals in the Templates view; binaries remain in browser IndexedDB, not on a server or in git. DOCX generation and preview dependencies load on demand.
+- Private DOCX draft export uses centrally stored, reviewed reusable templates. An authenticated endpoint checks confirmed identity and active owner/editor/viewer membership before reading template bytes; server and browser both check their exact hashes. Old browser-local originals remain untouched and are no longer required for default loading. DOCX generation and preview dependencies load on demand.
 - Procurement workspace registers 11 additional references across customer service, selection, contracting, and delivery/acceptance. Store project-specific contractor/PO/WO/budget/date/committee information separately from the customer and sales price. Track each document's reference/date/internal review status without implying a signature or approval. All records remain in the versioned workspace backup.
 - Export filtered proposals as CSV or the entire workspace as a JSON backup. Import validates records and previews counts before replacement. CSV cells protect against spreadsheet formula injection.
 - Data is stored locally in one versioned snapshot. Legacy v1 browser data is read without deletion, writes are atomic across customer/proposal updates, and corrupt or unsupported data is never silently reset. Storage changes in other tabs are synchronized.
-- No authentication, shared database, server-generated PDF/DOCX, remote template uploads, or production integrations are enabled yet. This browser-local prototype is not suitable for sensitive production records or multi-user access.
+- Cooperating tabs serialize writes with Web Locks and reject stale editor/import baselines while retaining drafts. Use a current browser on HTTPS (or localhost); without Web Locks, saving is blocked while reading/export remain available. Reload old tabs to the same version. This does not provide multi-device transactions or server authorization.
+- Shared mode adds server-verified sign-in, role/membership checks, RLS-protected reads, transaction/revision-protected writes, invitations and audit events. It is enabled only on the configured audit Preview branch while live acceptance tests continue. Registration, recovery and password changes are absent from SolarDesk to preserve the shared Auth application's behavior. Local mode retains its original storage and limitations.
+- Client-generated draft DOCX is implemented. Server-generated final PDF/DOCX, self-service template administration and legacy production integration remain incomplete. This version is not approved for sensitive production use.
 
 ## Official form workflow
 
 1. In Company Settings, fill the official branch profile and signatory roles. Leave banking fields blank unless an authorized account should appear; the original sample account is never inherited.
 2. Create/edit a proposal. Enter system/equipment information and document terms. Choose Turnkey and enter the base cost for an approval memo. Saving assigns a unique `QT-<Buddhist year><month>-<sequence>` number unless a number is entered manually.
-3. Open Templates, select the proposal, attach each original DOCX, and resolve the missing-field checklist. Modified templates are deliberately rejected; offsets must be re-audited for every new template revision.
-4. Export a draft, inspect the amounts and every page in Microsoft Word with the original fonts, then authorize issuance outside this prototype. Export does not send or sign anything.
+3. Sign in to the configured Preview, open Templates, select the proposal and resolve the missing-field checklist. The reviewed private template loads automatically. Template revisions still require a reviewed hash and mapping; a mismatched response is rejected with retry guidance.
+4. Open **เตรียม Word ฉบับร่าง** to review the saved figures and adjust labelled draft wording, then acknowledge the notice and download. Financial figures, quantities and composite payment/site terms stay linked to saved project data; a saved-price/calculated-total mismatch blocks export until reviewed and re-saved. Use **ดาวน์โหลดไฟล์ล่าสุดอีกครั้ง** if the browser did not save the file; preview opens only when requested. Downloads use a connected anchor and keep the temporary file URL alive for one minute. A template 401 requires sign-in; a 403 indicates missing access. No original-file attachment is required.
+5. Export a draft, inspect the amounts and every page in Microsoft Word with the original fonts, then authorize issuance outside this prototype. Export does not send or sign anything.
 
 The sample's equipment table uses one merged row with independently spaced descriptions/quantities, not real item rows. The fourth and fifth quantity entries are explicit manual column-position fields because their visual association cannot be verified here. Other supporting quantities and source boilerplate remain as supplied. Check every quantity and the retained On-grid wording against the actual project. System capacity and inverter capacity are separate fields, not inferred from a model name.
 
 Browser preview is content-only: substituted fonts, VML shapes, table positions and pagination differ from Word. The packaged canonical renderer currently lacks LibreOffice; native Word/LibreOffice pagination QA and the final PDF workflow remain pending. Successful XML validation is not print-readiness approval. The supplied source files themselves are never modified.
 
-JSON backups include proposal details and official profiles (including any user-entered payment information); store them securely. They exclude template binaries: retain both original DOCX files separately. Clearing site data removes local records/templates. `localhost` and `127.0.0.1` are different browser storage origins.
+JSON backups include proposal details and official profiles (including any user-entered payment information); store them securely. They exclude template binaries: retain the original Word references separately. Clearing site data still removes browser-local records/old attachments, but the private central template library is loaded again after authorized sign-in. `localhost` and `127.0.0.1` remain different browser storage origins.
 
 ## Procurement references
 
-Open **จัดจ้าง**, choose an existing proposal/project, and attach the supplied files in one batch. SHA-256 identifies the reviewed version of each file; a changed/unknown document is rejected without overwriting an existing reference. All 11 binaries are retained only in private browser IndexedDB, sharing the original template store without migrating or deleting it. Ten DOCX files have browser content previews; the legacy supervision `.doc` is retained but cannot be rendered or mapped until a separately verified DOCX conversion is supplied.
+Open **จัดจ้าง** while signed in and choose an existing proposal/project. All eleven reviewed DOCX templates load from the private central library, including the converted supervision form 23. Existing DOC/DOCX originals and their IndexedDB keys are preserved; default loading does not read or overwrite them. SHA-256 verifies each registered version before it can be used. A failed request can retry independently without hiding other ready forms or requiring reattachment.
 
 The four stage buttons show 2 / 3 / 4 / 2 documents. Their grouping is an organizational aid, not a legal workflow approval or a claim that source filename numbers establish a valid order. Save the project fields and document tracking explicitly. Switching projects/pages or leaving the browser warns about unsaved edits. Saving an ordinary sales proposal preserves its procurement fields. Concurrent edits to the same procurement data are rejected instead of silently overwriting them.
 
-These 11 references are **not enabled for automatic document generation** yet. They contain different projects, partly conflicting dates/payment clauses and optional contract alternatives; no existing signatories, signatures, contractor identities, prices, approval/check marks or acceptance outcomes are applied to a new project. No account, citizen ID or identity-document copies are requested by the procurement editor. The editor's dates use Gregorian years (e.g. 2026), with date and order validation. Zero amounts/rates/days mean unset or explicitly zero and require review, not a prescribed default.
+Eleven reviewed DOCX references now support **editable draft generation**, using 221 own-text paragraph slots with original package structure retained. Save the procurement data, open **เตรียม Word ฉบับร่าง**, check the prefilled text and complete any `[รอกรอก: …]` fields, then acknowledge the draft notice to download. Per-file wording edits affect that download only and are not saved into the shared workspace or JSON backup. Changing the project while a draft is open blocks generation; changing draft text invalidates its previous download/retry state. They contain different projects, partly conflicting dates/payment clauses and optional contract alternatives; no existing signatories, signatures, contractor identities, prices, approval/check marks or acceptance outcomes are applied to a new project. No account, citizen ID or identity-document copies are requested by the procurement editor. The editor's dates use Gregorian years (e.g. 2026), with date and order validation. Zero amounts/rates/days mean unset or explicitly zero and require review, not a prescribed default.
 
-Before implementing generation, obtain the supervision DOCX, confirm the exact legal/template revision and alternatives with the responsible reviewer, inventory every editable slot including shapes/fields/headers, and complete native Word rendering and privacy checks for every document. Do not infer applicable procurement rules, agreement-vs-contract choice, guarantee rates, or approval authority from these historic samples. No legal advice or current-regulation verification is provided by this reference library.
+The supervision reference was converted and its draft passed download/retry, source-hash and private ZIP/XML checks. Before official issuance, confirm the exact legal/template revision and alternatives with the responsible reviewer and complete native Word pagination/privacy checks for every output. Some variable paragraphs are intentionally rewritten as draft fields; the remaining contract boilerplate is retained for review, not legally validated. Do not infer applicable procurement rules, agreement-vs-contract choice, guarantee rates, or approval authority from these historic samples. No legal advice or current-regulation verification is provided by this reference library. See [verification and limitations](docs/DOCUMENT-DOWNLOADS.md).
 
 ## Run locally
 
@@ -49,17 +61,20 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+Local/demo business records remain available when cloud mode is disabled. The private template library requires the configured authenticated backend and active SolarDesk membership; local/demo mode has no public template-file fallback. Use the audit Preview for the central no-attachment document workflow.
+
 ## Verification
 
 ```bash
 npm test
 npm run lint
 npm run build
+npm run test:http
 ```
 
 The data-integrity tests require Node.js 22.18+ (Node.js 24 is used locally). Tests cover backup round trips, legacy migration, corrupted/versioned data, ID collisions, customer renames, numeric validation, CSV injection, sample estimate arithmetic, Thai baht text and document slot coverage. Private reference audits are intentionally outside this app directory.
 
-Security check on 2026-10-21: Next.js 15.5.28, Sharp 0.35.5 and a PostCSS 8.5.31 override remove the previously reported production dependency advisories (`npm audit --omit=dev`: zero). Full audit still reports five high-severity entries from the same development-only `braces` → `micromatch` → `fast-glob` → Next lint chain. The registry offers no patched braces release; do not blindly downgrade Next lint or apply a forced major upgrade. Lint processes controlled repository patterns and CI has a 15-minute timeout. Track the upstream fix and rerun both audits regularly. This dependency check is not a complete application security audit.
+Security check on 2026-10-25: full `npm audit --json` reports **zero advisories** for the current lockfile, including development dependencies. This supersedes the five development-only advisories observed on 2026-10-21; no forced dependency changes were made in this audit. Next.js is 15.5.28, with a PostCSS 8.5.31 override. Rerun audits before release; this dependency result is not a complete application security audit.
 
 ## GitHub and Vercel workflow
 
@@ -69,12 +84,12 @@ Use GitHub as the source of truth for reviewed V2 changes: feature branch → pu
 
 Do not remove the `main` guard, switch domains or manually release production until legacy source/data recovery, feature compatibility, authentication/shared storage and user acceptance are complete. Test with isolated preview credentials/data. The observed CLI `--skip-domain` alias-assignment incident is recorded in the implementation status; do not assume that flag alone protects the live domain in this environment.
 
-Do not commit `.env`, original customer documents, private recovery files or database exports. `.env.example` contains empty names only; the browser's localStorage/IndexedDB data is not part of the repository. Existing document binaries stay on the user's machine.
+Do not commit `.env`, original customer documents, template binaries, private recovery files or database exports. `.env.example` contains empty names only; browser localStorage/IndexedDB data is not part of the repository. Original references remain on the user's machine, and the reviewed reusable versions reside in private server storage behind the authenticated endpoint.
 
 ## Remaining roadmap
 
 - Finish native document layout QA, review the source table quantities/page fields and legal/payment boilerplate, then add tested final PDF generation.
-- Recover the full legacy source/schema and audit its auth, server actions and API routes. Build a feature/data compatibility matrix before replacing anything.
+- Finish the full legacy source review and audit its auth, server actions and API routes. The complete Prisma schema has been recovered privately (eight models); the feature/data compatibility matrix and a lossless migration are still incomplete.
 - Add server-side authentication, tenant/role authorization, validated CRUD and audit logs with a disposable database first. Import local records only through a reviewed migration; do not point this prototype at production.
 - Verify remote CI and Git-triggered Preview deployments; add reviewed branch protection and a production approval gate before removing the `main` deployment hold. Preserve the old application and a tested rollback path.
 

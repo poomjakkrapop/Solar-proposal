@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { calculateEstimate, defaultSolarDetails } from "../lib/solar";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { calculateEstimate } from "../lib/solar";
 import { SolarFields } from "./solar-fields";
+import {
+  applyPackageEquipment,
+  initialCatalogSolar,
+  defaultCatalog,
+  type Catalog,
+} from "../lib/catalog";
 import {
   ArrowRight,
   Check,
@@ -12,7 +18,6 @@ import {
   Upload,
 } from "lucide-react";
 import {
-  catalog,
   money,
   parseWorkspace,
   type Company,
@@ -21,15 +26,15 @@ import {
   type Workspace,
 } from "../lib/workspace";
 
-type Save = (form: FormData) => void;
-function submitForm(
+type Save = (form: FormData) => void | Promise<void>;
+async function submitForm(
   event: FormEvent<HTMLFormElement>,
   save: Save,
   setError: (message: string) => void,
 ) {
   event.preventDefault();
   try {
-    save(new FormData(event.currentTarget));
+    await save(new FormData(event.currentTarget));
   } catch (error) {
     setError(
       error instanceof Error
@@ -40,22 +45,35 @@ function submitForm(
 }
 
 export function ProposalEditor({
+  catalogData = defaultCatalog,
   proposal,
   customers,
   selectedPackage,
   onSave,
   onCancel,
+  readOnly = false,
 }: {
+  catalogData?: Catalog;
   proposal: Proposal | null;
   customers: Customer[];
   selectedPackage?: string;
   onSave: Save;
   onCancel: () => void;
+  readOnly?: boolean;
 }) {
+  const catalog = catalogData.packages.filter(
+    (item) =>
+      item.active &&
+      [item.panelId, item.inverterId].every(
+        (id) => !id || catalogData.equipment.find((e) => e.id === id)?.active,
+      ),
+  );
   const initialPackage =
     catalog.find(
       (item) => item.name === (proposal?.package || selectedPackage),
-    ) || catalog[1];
+    ) ||
+    catalog.find((item) => item.name === "Residential Premium") ||
+    catalog[0];
   const [customerId, setCustomerId] = useState(proposal?.customerId || "");
   const [customer, setCustomer] = useState(proposal?.customer || "");
   const [contact, setContact] = useState(proposal?.contact || "");
@@ -67,17 +85,17 @@ export function ProposalEditor({
   );
   const [location, setLocation] = useState(proposal?.location || "");
   const [packageName, setPackageName] = useState(
-    proposal?.package || initialPackage.name,
+    proposal?.package || initialPackage?.name || "ปรับแต่งเอง",
   );
   const [system, setSystem] = useState(
-    proposal?.system || initialPackage.system,
+    proposal?.system || initialPackage?.system || 10,
   );
   const [amount, setAmount] = useState(
-    proposal?.amount || initialPackage.price,
+    proposal?.amount ?? initialPackage?.price ?? 0,
   );
   const [error, setError] = useState("");
-  const [solar, setSolar] = useState(
-    proposal?.solar || defaultSolarDetails(system),
+  const [solar, setSolar] = useState(() =>
+    initialCatalogSolar(proposal, initialPackage, system, catalogData),
   );
   const estimate = calculateEstimate(solar, amount);
   function chooseCustomer(id: string) {
@@ -101,6 +119,9 @@ export function ProposalEditor({
     if (item) {
       setSystem(item.system);
       setAmount(item.price);
+      setSolar((previous) =>
+        applyPackageEquipment(previous, item, catalogData),
+      );
     }
   }
   return (
@@ -264,11 +285,16 @@ export function ProposalEditor({
         <button type="button" className="secondary-button" onClick={onCancel}>
           ยกเลิก
         </button>
-        <button className="primary-button">
+        <button className="primary-button" disabled={readOnly}>
           <Save size={16} />
           {proposal ? "บันทึกการแก้ไข" : "บันทึกแบบร่าง"}
         </button>
       </div>
+      {readOnly && (
+        <p role="status" className="form-error">
+          ขณะนี้ไม่มีสิทธิ์บันทึก ร่างที่กรอกยังอยู่และคัดลอกเก็บไว้ได้
+        </p>
+      )}
     </form>
   );
 }
@@ -277,10 +303,12 @@ export function CustomerEditor({
   customer,
   onSave,
   onCancel,
+  readOnly = false,
 }: {
   customer: Customer | null;
   onSave: Save;
   onCancel: () => void;
+  readOnly?: boolean;
 }) {
   const [error, setError] = useState("");
   return (
@@ -347,11 +375,16 @@ export function CustomerEditor({
         <button type="button" className="secondary-button" onClick={onCancel}>
           ยกเลิก
         </button>
-        <button className="primary-button">
+        <button className="primary-button" disabled={readOnly}>
           <Save size={16} />
           {customer ? "บันทึกการแก้ไข" : "บันทึกลูกค้า"}
         </button>
       </div>
+      {readOnly && (
+        <p role="status" className="form-error">
+          ขณะนี้ไม่มีสิทธิ์บันทึก ร่างที่กรอกยังอยู่และคัดลอกเก็บไว้ได้
+        </p>
+      )}
     </form>
   );
 }
@@ -361,16 +394,35 @@ export function CompanySettings({
   onSave,
   onBackup,
   onImport,
+  shared = false,
+  readOnly = false,
+  onDirtyChange,
 }: {
   workspace: Workspace;
-  onSave: (company: Company) => boolean;
+  onSave: (company: Company, baseline: Company) => Promise<boolean>;
   onBackup: () => void;
-  onImport: (workspace: Workspace) => boolean;
+  onImport: (workspace: Workspace, baseline: Workspace) => Promise<boolean>;
+  shared?: boolean;
+  readOnly?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [pendingImport, setPendingImport] = useState<Workspace | null>(null);
+  const [companyBase, setCompanyBase] = useState<Company | null>(null);
+  const [companyError, setCompanyError] = useState("");
+  const companyValue = companyBase || workspace.company;
+  useEffect(
+    () => () => onDirtyChange?.(false),
+    [onDirtyChange],
+  );
+  const [pendingImport, setPendingImport] = useState<{
+    data: Workspace;
+    baseline: Workspace;
+  } | null>(null);
+  const importRequest = useRef(0);
   async function selectBackup(file: File | undefined) {
+    const request = ++importRequest.current;
+    const baseline = workspace;
     setError("");
     setPendingImport(null);
     if (!file) return;
@@ -379,9 +431,16 @@ export function CompanySettings({
       return;
     }
     try {
-      setPendingImport(parseWorkspace(await file.text()));
+      const data = parseWorkspace(await file.text());
+      if (workspace.catalog && !data.catalog)
+        throw new Error(
+          "ไฟล์สำรองนี้ไม่มีแพ็กเกจและอุปกรณ์ จึงยังแทนข้อมูลปัจจุบันไม่ได้ กรุณาใช้ไฟล์สำรองรุ่นล่าสุด",
+        );
+      if (request === importRequest.current)
+        setPendingImport({ data, baseline });
     } catch (error) {
-      setError(error instanceof Error ? error.message : "อ่านไฟล์ไม่สำเร็จ");
+      if (request === importRequest.current)
+        setError(error instanceof Error ? error.message : "อ่านไฟล์ไม่สำเร็จ");
     }
   }
   return (
@@ -394,8 +453,14 @@ export function CompanySettings({
           </div>
         </div>
         <form
-          key={JSON.stringify(workspace.company)}
-          onSubmit={(event) => {
+          key={JSON.stringify(companyValue)}
+          onChange={() => {
+            if (!companyBase) setCompanyBase(workspace.company);
+            onDirtyChange?.(true);
+            setMessage("");
+            setCompanyError("");
+          }}
+          onSubmit={async (event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
             const company: Company = {
@@ -404,9 +469,17 @@ export function CompanySettings({
               phone: String(form.get("phone") || "").trim(),
               email: String(form.get("email") || "").trim(),
               taxId: String(form.get("taxId") || "").trim(),
-              official: workspace.company.official,
+              official: companyValue.official,
             };
-            if (onSave(company)) setMessage("บันทึกข้อมูลบริษัทแล้ว");
+            if (await onSave(company, companyValue)) {
+              setCompanyBase(null);
+              onDirtyChange?.(false);
+              setMessage("บันทึกข้อมูลบริษัทแล้ว");
+              setCompanyError("");
+            } else
+              setCompanyError(
+                "บันทึกไม่สำเร็จ ข้อมูลล่าสุดอาจเปลี่ยนจากแท็บอื่น กรุณาสำรองข้อความที่กรอกก่อนเปิดหน้าใหม่",
+              );
           }}
           className="editor-form settings-form"
         >
@@ -415,50 +488,60 @@ export function CompanySettings({
               ชื่อบริษัท
               <input
                 name="name"
+                readOnly={readOnly}
                 required
                 maxLength={200}
-                defaultValue={workspace.company.name}
+                defaultValue={companyValue.name}
               />
             </label>
             <label className="field field-full">
               ที่อยู่
               <textarea
                 name="address"
+                readOnly={readOnly}
                 rows={3}
                 maxLength={1000}
-                defaultValue={workspace.company.address}
+                defaultValue={companyValue.address}
               />
             </label>
             <label className="field">
               เบอร์โทรศัพท์
               <input
                 name="phone"
+                readOnly={readOnly}
                 type="tel"
                 maxLength={30}
-                defaultValue={workspace.company.phone}
+                defaultValue={companyValue.phone}
               />
             </label>
             <label className="field">
               อีเมล
               <input
                 name="email"
+                readOnly={readOnly}
                 type="email"
                 maxLength={200}
-                defaultValue={workspace.company.email}
+                defaultValue={companyValue.email}
               />
             </label>
             <label className="field field-full">
               เลขประจำตัวผู้เสียภาษี
               <input
                 name="taxId"
+                readOnly={readOnly}
                 inputMode="numeric"
                 pattern="[0-9]{13}|"
                 maxLength={13}
-                defaultValue={workspace.company.taxId}
+                defaultValue={companyValue.taxId}
                 placeholder="ตัวเลข 13 หลัก (ถ้ามี)"
               />
             </label>
           </div>
+          {companyError && (
+            <p role="alert" className="form-error">
+              {companyError}
+            </p>
+          )}
           {message && (
             <p role="status" className="form-success">
               <Check size={15} />
@@ -466,7 +549,7 @@ export function CompanySettings({
             </p>
           )}
           <div className="modal-actions">
-            <button className="primary-button">
+            <button className="primary-button" disabled={readOnly}>
               <Save size={16} />
               บันทึกข้อมูลบริษัท
             </button>
@@ -477,7 +560,11 @@ export function CompanySettings({
         <div className="panel-head">
           <div>
             <h2>สำรองและนำเข้าข้อมูล</h2>
-            <p>ข้อมูลการทดลองที่บันทึกในเบราว์เซอร์นี้</p>
+            <p>
+              {shared
+                ? "ข้อมูลกลางของพื้นที่ทำงานนี้"
+                : "ข้อมูลการทดลองที่บันทึกในเบราว์เซอร์นี้"}
+            </p>
           </div>
         </div>
         <div className="backup-summary">
@@ -499,6 +586,7 @@ export function CompanySettings({
           นำเข้าไฟล์สำรอง JSON
           <input
             type="file"
+            disabled={readOnly}
             accept="application/json,.json"
             onChange={(event) => {
               void selectBackup(event.target.files?.[0]);
@@ -514,13 +602,22 @@ export function CompanySettings({
         {pendingImport && (
           <div className="import-preview">
             <Upload size={18} />
-            <strong>{pendingImport.company.name}</strong>
+            <strong>{pendingImport.data.company.name}</strong>
             <span>
-              {pendingImport.proposals.length} ใบเสนอราคา ·{" "}
-              {pendingImport.customers.length} ลูกค้า
+              {pendingImport.data.proposals.length} ใบเสนอราคา ·{" "}
+              {pendingImport.data.customers.length} ลูกค้า
+              {pendingImport.data.catalog && (
+                <>
+                  {" "}
+                  · {pendingImport.data.catalog.packages.length} แพ็กเกจ ·{" "}
+                  {pendingImport.data.catalog.equipment.length} อุปกรณ์
+                </>
+              )}
             </span>
             <p>
-              การนำเข้าจะแทนข้อมูลในเบราว์เซอร์นี้
+              {shared
+                ? "การยืนยันนำเข้าจะส่งข้อมูลใน JSON ขึ้นเซิร์ฟเวอร์และแทนข้อมูลกลางของพื้นที่นี้ สมาชิกที่มีสิทธิ์จะเห็นข้อมูลใหม่"
+                : "การนำเข้าจะแทนข้อมูลในเบราว์เซอร์นี้"}
               ควรดาวน์โหลดไฟล์สำรองปัจจุบันเก็บไว้ก่อน
             </p>
             <div className="button-row">
@@ -532,11 +629,19 @@ export function CompanySettings({
               </button>
               <button
                 className="primary-button"
-                onClick={() => {
-                  if (onImport(pendingImport)) {
+                disabled={readOnly}
+                onClick={async () => {
+                  if (
+                    await onImport(pendingImport.data, pendingImport.baseline)
+                  ) {
+                    setCompanyBase(null);
                     setPendingImport(null);
                     setMessage("นำเข้าข้อมูลสำเร็จ");
-                  }
+                    setError("");
+                  } else
+                    setError(
+                      "ข้อมูลเปลี่ยนระหว่างตรวจไฟล์สำรอง จึงยังไม่แทนข้อมูลล่าสุด กรุณาเลือกไฟล์และตรวจทานใหม่",
+                    );
                 }}
               >
                 ยืนยันนำเข้า <ArrowRight size={15} />

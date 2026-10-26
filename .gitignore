@@ -29,3 +29,7 @@ private/
 *backup*.json
 credentials*.json
 auth.json
+supabase/.temp/
+*.dump
+*.backup
+*.sql.gz

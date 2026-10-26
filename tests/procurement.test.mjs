@@ -30,11 +30,11 @@ test("the 11 references belong to a known workflow stage and have unique verifie
   }
   assert.equal(
     procurementReferences.filter((item) => item.previewable).length,
-    10,
+    11,
   );
   assert.equal(
     procurementReferences.find((item) => item.id === "supervision").previewable,
-    false,
+    true,
   );
 });
 test("new procurement is empty and has no inherited parties, prices, dates or approvals", () => {

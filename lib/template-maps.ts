@@ -220,6 +220,20 @@ export const templateMaps: TemplateMap[] = [
         end: 63,
         key: "preparerRole",
       },
+      {
+        part: "word/document.xml",
+        paragraph: 26,
+        start: 0,
+        end: 16,
+        key: "approvalDecision",
+      },
+      {
+        part: "word/document.xml",
+        paragraph: 31,
+        start: 0,
+        end: 16,
+        key: "approvalDecision",
+      },
     ],
   },
   {
